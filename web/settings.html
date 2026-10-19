@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DeskMon 設定</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="settings.css?v=20">
+</head>
+<body>
+<div class="wrap">
+  <h1>DeskMon 設定 <a href="/">回到面板 →</a></h1>
+
+  <div class="col">
+    <section style="--c:var(--printer,#f2a541)">
+      <h2><i></i>3D 列印機 · Bambu Lab <label class="toggle"><input type="checkbox" data-k="printer.enabled">啟用</label></h2>
+      <div class="row">
+        <label>名稱<input type="text" data-k="printer.title" placeholder="Bambu Lab"></label>
+        <label>型號<input type="text" data-k="printer.model" placeholder="X2D"></label>
+      </div>
+      <div class="row three">
+        <label>IP 位址<input type="text" data-k="printer.ip" placeholder="192.168.1.100" inputmode="decimal"></label>
+        <label>序號<input type="text" data-k="printer.serial" placeholder="設定 → 裝置"></label>
+        <label>LAN 存取碼<span class="pw"><input type="password" data-k="printer.access_code" placeholder="8 碼" autocomplete="off"><button type="button" data-reveal>顯示</button></span></label>
+      </div>
+    </section>
+
+    <section style="--c:var(--music,#7ee0b5)">
+      <h2><i></i>正在播放 <label class="toggle"><input type="checkbox" data-k="music.enabled">啟用</label></h2>
+      <label>名稱<input type="text" data-k="music.title" placeholder="Now Playing"></label>
+      <h3 class="sub">歌詞來源 <small>由上往下依序查詢；歌名與歌手會送到勾選的服務</small></h3>
+      <label class="toggle left"><input type="checkbox" data-k="music.lyrics_sources.lrclib">LRCLIB（公開免費 API，預設）</label>
+      <label class="toggle left"><input type="checkbox" data-k="music.lyrics_sources.kugou">酷狗（非官方介面，中文歌較多）</label>
+      <label class="toggle left"><input type="checkbox" data-k="music.lyrics_sources.netease">網易雲（非官方介面）</label>
+      <h3 class="sub">Apple Music 原生歌詞</h3>
+      <label class="toggle left"><input type="checkbox" data-k="music.apple_music_native">使用 Chrome 擴充功能讀取 Apple Music 網頁</label>
+      <p class="hint">首次使用請在專案資料夾執行 <code>python -m modules.apple_bridge</code> 產生配對金鑰（存於 config.json），再於 Chrome 載入 apple-music-extension 資料夾。</p>
+    </section>
+
+    <section style="--c:var(--codex,#8f7bff)">
+      <h2><i></i>AI 用量</h2>
+      <div class="row">
+        <label class="toggle left"><input type="checkbox" data-k="codex.enabled">顯示 Codex</label>
+        <label class="toggle left"><input type="checkbox" data-k="claude.enabled">顯示 Claude</label>
+      </div>
+      <div class="row">
+        <label>Claude 5 小時預算（tokens）<input type="number" min="0" step="100000" data-k="claude.budget_5h" placeholder="例：5000000"></label>
+        <label>Claude 7 天預算（tokens）<input type="number" min="0" step="1000000" data-k="claude.budget_week" placeholder="例：50000000"></label>
+      </div>
+      <label class="toggle left"><input type="checkbox" data-k="claude.official_usage">讀取官方用量 %（使用本機 Claude Code 登入）</label>
+      <p class="hint">開啟後 DeskMon 會讀取你自己在這台電腦以 <code>claude</code> 指令登入的資料，向 Anthropic 查詢用量（每 5 分鐘一次）。登入資料不會儲存或傳到其他地方；關閉則只用上方預算估算。</p>
+      <div>
+      </div>
+    </section>
+
+    <section style="--c:#9aa0ff">
+      <h2><i></i>小螢幕與解析度</h2>
+      <div class="row">
+        <label>排版尺寸
+          <select id="layoutSize">
+            <option value="960,640">960×640</option>
+            <option value="480,320">480×320</option>
+            <option value="960,480">960×480 · 2:1</option>
+            <option value="1024,768">1024×768 · 4:3</option>
+            <option value="1280,800">1280×800 · 16:10</option>
+            <option value="1920,1080">1920×1080 · 16:9</option>
+            <option value="auto">自動跟隨視窗</option>
+          </select>
+        </label>
+        <label>文字大小 <b id="scaleVal" class="val"></b><input type="range" min="0.8" max="1.4" step="0.05" data-k="display.text_scale"></label>
+      </div>
+      <h3 class="sub">螢幕解析度</h3>
+      <div id="displays" class="displays">正在偵測小螢幕…</div>
+    </section>
+
+    <section style="--c:var(--accent)">
+      <h2><i></i>顏色主題</h2>
+      <div class="swatches" id="bgs"></div>
+      <div class="presets" id="presets"></div>
+      <div class="colors">
+        <label class="color"><span>印表機</span><input type="color" data-k="theme.printer"></label>
+        <label class="color"><span>音樂</span><input type="color" data-k="theme.music"></label>
+        <label class="color"><span>Codex 漸層 1</span><input type="color" data-k="theme.codex.0"></label>
+        <label class="color"><span>Codex 漸層 2</span><input type="color" data-k="theme.codex.1"></label>
+        <div class="grad" id="gCodex"></div>
+        <label class="color"><span>Claude 漸層 1</span><input type="color" data-k="theme.claude.0"></label>
+        <label class="color"><span>Claude 漸層 2</span><input type="color" data-k="theme.claude.1"></label>
+        <div class="grad" id="gClaude"></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="preview">
+    <section>
+      <h2><i style="background:var(--accent)"></i>預覽</h2>
+      <div class="frame" id="frame"><iframe id="pv" src="/" width="960" height="640" title="面板預覽"></iframe></div>
+    </section>
+  </div>
+</div>
+
+<div class="modal" id="modal" hidden><div class="box">
+  <h3 id="mTitle"></h3><p id="mText"></p>
+  <div class="mBtns"><button class="ghost" id="mNo" type="button"></button><button id="mYes" type="button"></button></div>
+</div></div>
+
+<div class="bar"><div class="in">
+  <span id="status" role="alert" hidden></span>
+  <button id="save" type="button">套用</button>
+</div></div>
+
+<script src="api.js?v=1"></script>
+<script src="layout.js?v=18"></script>
+<script src="settings.js?v=21"></script>
+</body>
+</html>

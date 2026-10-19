@@ -1,0 +1,5 @@
+paho-mqtt>=2.0
+imageio-ffmpeg>=0.6
+winrt-runtime; sys_platform == "win32"
+winrt-Windows.Foundation; sys_platform == "win32"
+winrt-Windows.Media.Control; sys_platform == "win32"

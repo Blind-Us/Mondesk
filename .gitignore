@@ -1,0 +1,17 @@
+# personal settings and secrets (printer access code, pairing key, ...)
+config.json
+apple-music-extension/config.js
+.apple-music-key
+.claude-usage.json
+
+# Python / local environments
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

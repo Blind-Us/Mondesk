@@ -1,0 +1,42 @@
+{
+  "host": "127.0.0.1",
+  "port": 9361,
+  "display": {
+    "text_scale": 1
+  },
+  "modules": [
+    {
+      "id": "printer",
+      "type": "bambu",
+      "title": "Bambu Lab",
+      "model": "",
+      "enabled": false,
+      "ip": "",
+      "serial": "",
+      "access_code": "",
+      "control_enabled": false
+    },
+    {
+      "id": "music",
+      "type": "media",
+      "title": "Now Playing",
+      "lyrics_sources": ["lrclib"],
+      "apple_music_native": false
+    },
+    {
+      "id": "codex",
+      "type": "tokens",
+      "provider": "codex",
+      "title": "Codex"
+    },
+    {
+      "id": "claude",
+      "type": "tokens",
+      "provider": "claude",
+      "title": "Claude",
+      "official_usage": false,
+      "budget_5h": null,
+      "budget_week": null
+    }
+  ]
+}

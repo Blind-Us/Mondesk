@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "DeskMon — Apple Music 原生歌詞",
+  "version": "0.1.4",
+  "action": {"default_title": "DeskMon Apple Music 連線狀態", "default_popup": "status.html"},
+  "description": "將 Apple Music 原生歌詞與播放進度傳到本機 DeskMon，支援點擊歌詞跳轉。",
+  "host_permissions": ["http://127.0.0.1/*"],
+  "background": {"service_worker": "background.js"},
+  "content_scripts": [
+    {"matches": ["https://music.apple.com/*"], "js": ["page.js"], "world": "MAIN", "run_at": "document_start"},
+    {"matches": ["https://music.apple.com/*"], "js": ["content.js"], "run_at": "document_start"}
+  ]
+}
