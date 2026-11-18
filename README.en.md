@@ -29,7 +29,7 @@ Get it from [Releases](../../releases). Unzip and double-click; no Python to ins
 
 - Start with the computer, full screen: the "應用程式" (Application) section of the settings page.
 - Apple Music lyrics and video sync need the browser extension; the "正在播放" (Now Playing) section of the settings page explains how to install it.
-- If Windows says "Windows protected your PC", click "More info" → "Run anyway" (the program is not code-signed). On computers with Smart App Control turned on, use the source version.
+- The Windows package carries the official embeddable Python; `Mondesk.exe` keeps the Python Software Foundation's signature, so it runs even with Smart App Control turned on.
 
 The interface is in Traditional Chinese.
 

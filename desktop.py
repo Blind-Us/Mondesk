@@ -30,6 +30,10 @@ def launch_command(extra=()):
     if FROZEN:
         return [sys.executable, *extra]
     python = Path(sys.executable)
+    if python.stem.lower() == 'mondesk':
+        # the Windows package: Mondesk.exe is Python's own signed pythonw.exe, renamed; started with nothing
+        # after it, it runs Mondesk by itself (see tools/build_app.py, mondesk_launch.py)
+        return [str(python), *extra] if not extra else [str(python), str(Path(__file__).resolve()), *extra]
     windowless = python.with_name('pythonw.exe')
     return [str(windowless if windowless.exists() else python), str(Path(__file__).resolve()), *extra]
 

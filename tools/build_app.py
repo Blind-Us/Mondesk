@@ -2,6 +2,11 @@
 every package, the modules, the pages, ffmpeg, the browser-extension template), then a zip of it.
 Whoever downloads it unpacks and double-clicks; nothing to install, nothing to type.
 
+Windows: not a PyInstaller .exe. Windows' "Smart App Control" refuses unsigned programs, and a
+PyInstaller .exe is one. So the package carries the official embeddable Python from python.org
+(python.exe / pythonw.exe are signed by the Python Software Foundation), the packages and our code,
+and Mondesk.bat starts pythonw.exe with desktop.py: no console, nothing unsigned to start.
+
     python tools/build_app.py          ->  dist/Mondesk-windows.zip   (on Windows)
                                            dist/Mondesk-linux.tar.gz  (on Linux)
 
@@ -12,10 +17,12 @@ One system cannot build the other's package; .github/workflows/release.yml build
 Needs: pip install -r requirements-desktop.txt pyinstaller
 """
 import json
+import platform
 import shutil
 import subprocess
 import sys
 import tarfile
+import urllib.request
 import zipfile
 from pathlib import Path
 
@@ -36,7 +43,103 @@ def stage_extension(folder):
     return target
 
 
+# what the Windows package runs from source: the program, the pages, the pictures
+APP_FILES = ["desktop.py", "server.py", "displays.py", "user_paths.py", "config.example.json", "LICENSE"]
+APP_FOLDERS = ["modules", "web", "assets"]
+DOTNET_CONFIG = """<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <runtime>
+    <loadFromRemoteSources enabled="true"/>
+  </runtime>
+</configuration>
+"""
+
+
+def embeddable_python(work):
+    """python.org's embeddable Python of the same version as the one running this build (so the
+    wheels pip picks for this Python fit it), unpacked once into the build folder."""
+    version = platform.python_version()
+    arch = "arm64" if platform.machine().lower() in ("arm64", "aarch64") else "amd64"
+    name = f"python-{version}-embed-{arch}.zip"
+    archive = work / name
+    if not archive.exists():
+        work.mkdir(parents=True, exist_ok=True)
+        url = f"https://www.python.org/ftp/python/{version}/{name}"
+        print("downloading", url, flush=True)
+        with urllib.request.urlopen(url, timeout=120) as reply, open(archive, "wb") as out:
+            shutil.copyfileobj(reply, out)
+    return archive
+
+
+def build_windows():
+    """Mondesk/
+         Mondesk.exe, Mondesk 示範模式.exe   Python's signed pythonw.exe under our name (tools/mondesk_launch.py)
+         python3xx.dll, python3xx.zip, ...   the rest of the embeddable Python, which Mondesk.exe needs beside it
+         runtime/                            Python's extension modules (.pyd) and their DLLs
+         Lib/site-packages/                  the packages
+         app/                                Mondesk itself
+    No .bat: Smart App Control refuses scripts downloaded from the web."""
+    work, dist = ROOT / "build", ROOT / "dist"
+    folder = dist / NAME
+    shutil.rmtree(folder, ignore_errors=True)
+    app, runtime = folder / "app", folder / "runtime"
+    with zipfile.ZipFile(embeddable_python(work)) as z:
+        z.extractall(folder)
+    # keep the top folder short: only what the .exe must have beside it stays there
+    runtime.mkdir()
+    for path in list(folder.iterdir()):
+        if path.suffix == ".pyd" or path.name.startswith(("libcrypto", "libssl", "libffi", "libtommath", "sqlite3", "LICENSE", "build-details")):
+            shutil.move(path, runtime / path.name)
+    pythonw = folder / "pythonw.exe"
+    for name in ("Mondesk.exe", "Mondesk 示範模式.exe"):
+        shutil.copyfile(pythonw, folder / name)
+        # .NET (the window, through pywebview) refuses DLLs marked "downloaded from the internet" unless the
+        # program says these are its own: every file of a downloaded zip carries that mark
+        (folder / f"{name}.config").write_text(DOTNET_CONFIG, encoding="utf-8")
+    for name in ("pythonw.exe", "python.exe"):   # nothing to click by mistake: Mondesk.exe is the way in
+        (folder / name).unlink()
+    # the embeddable Python only looks where its ._pth file says: its library, its modules, the packages, Mondesk
+    pth = next(folder.glob("python*._pth"))
+    stdlib = [line for line in pth.read_text(encoding="utf-8").splitlines() if line.strip().endswith(".zip")]
+    pth.write_text("\n".join(stdlib + ["runtime", r"Lib\site-packages", "app", "import site"]) + "\n", encoding="utf-8")
+    packages = folder / "Lib" / "site-packages"
+    subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", "--disable-pip-version-check", "--no-warn-script-location",
+                    "--target", str(packages), "-r", str(ROOT / "requirements-desktop.txt")], check=True)
+    shutil.rmtree(packages / "bin", ignore_errors=True)   # the packages' console scripts: never used
+    shutil.copyfile(ROOT / "tools" / "mondesk_launch.py", packages / "mondesk_launch.py")
+    (packages / "mondesk-launch.pth").write_text("import mondesk_launch\n", encoding="utf-8")
+    app.mkdir()
+    for name in APP_FILES:
+        shutil.copyfile(ROOT / name, app / name)
+    skip = shutil.ignore_patterns("__pycache__", "*.pyc")
+    for name in APP_FOLDERS:
+        shutil.copytree(ROOT / name, app / name, ignore=skip)
+    stage_extension(app)
+    (folder / "README.txt").write_text(README_WINDOWS, encoding="utf-8")
+
+    # the package must really start, the way a double click starts it: Mondesk.exe with nothing after it
+    report = work / "self-test.json"
+    report.unlink(missing_ok=True)
+    env = {**__import__("os").environ, "MONDESK_SELF_TEST": str(report)}
+    subprocess.run([str(folder / "Mondesk.exe")], env=env, check=True, timeout=180)
+    result = json.loads(report.read_text(encoding="utf-8"))
+    bad = [k for k, v in result.items() if v in (False, None, 0)] + [k for k in ("web", "settings", "icon") if result.get(k) != 200]
+    if bad:
+        raise SystemExit(f"packaged program failed its self-test: {result}")
+    for path in folder.rglob("__pycache__"):
+        shutil.rmtree(path, ignore_errors=True)
+
+    archive = dist / "Mondesk-windows.zip"
+    with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as z:
+        for path in sorted(folder.rglob("*")):
+            if path.is_file():
+                z.write(path, f"{NAME}/{path.relative_to(folder).as_posix()}")
+    return archive, result
+
+
 def build():
+    if WINDOWS:
+        return build_windows()
     import PyInstaller.__main__
     from PyInstaller.utils.hooks import collect_submodules
     work, dist = ROOT / "build", ROOT / "dist"
@@ -108,15 +211,15 @@ def build():
 README_WINDOWS = """Mondesk
 
 開啟：點兩下 Mondesk.exe
-先看看長什麼樣子：點兩下「Mondesk 示範模式.bat」（全部是示範資料，不需要列印機或帳號，也不會存檔）
+先看看長什麼樣子：點兩下「Mondesk 示範模式.exe」（全部是示範資料，不需要列印機或帳號，也不會存檔）
+不用另外安裝 Python：這個資料夾裡就是 Python 官方的免安裝版，Mondesk.exe 是改了名字的 pythonw.exe（保留 Python 官方的數位簽章）。
 
 設定：面板左上角的齒輪。每張卡片右上角的小齒輪只開那張卡的設定。
 開機自動啟動、全螢幕：設定頁的「應用程式」。
 Apple Music 歌詞、YouTube／B 站影片：需要瀏覽器擴充功能，設定頁「正在播放」裡有一步一步的安裝說明。
 
 你的設定存在 %LOCALAPPDATA%\\DeskMon，不在這個資料夾裡；更新時直接換掉整個資料夾即可。
-第一次開啟時 Windows 可能顯示「Windows 已保護您的電腦」：這個程式沒有購買簽章，按「其他資訊」→「仍要執行」。
-如果顯示的是「智慧型應用程式控制已封鎖」，那台電腦不允許任何沒有簽章的程式，請改用原始碼版（GitHub 頁面有說明）。
+解壓縮後請整個資料夾一起保留，不要只拿出 Mondesk.exe。
 """
 
 README_LINUX = """Mondesk

@@ -17,13 +17,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest]
+        include:
+          # Windows ships python.org's embeddable Python of this exact version (tools/build_app.py)
+          - os: windows-latest
+            python: "3.15"
+          - os: ubuntu-latest
+            python: "3.12"
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python }}
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
