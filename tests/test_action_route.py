@@ -48,7 +48,7 @@ class SideScreenTests(unittest.TestCase):
         from modules.media import Module
         m = Module({"id": "music", "type": "media"})
         m.last_media = {"browser_bridge": False, "track": "x"}
-        with self.assertRaisesRegex(RuntimeError, "Alt\+Shift\+D"):  # no extension tab: say how instead
+        with self.assertRaisesRegex(RuntimeError, r"Alt\+Shift\+D"):  # no extension tab: say how instead
             m.action("side_screen")
         m.last_media = {"browser_bridge": True, "track": "web:abc"}
         with patch("modules.apple_bridge.bridge.action") as act:

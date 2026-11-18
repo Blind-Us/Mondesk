@@ -65,10 +65,11 @@ class ShellTests(unittest.TestCase):
             self.assertTrue(command[1].endswith('desktop.py'))
             self.assertEqual(command[-1], '--demo')
         # the Windows package: Mondesk.exe (Python's signed pythonw.exe, renamed) starts Mondesk by itself
-        with patch.object(desktop, 'FROZEN', False), patch.object(sys, 'executable', r'C:\Apps\Mondesk\Mondesk.exe'):
-            self.assertEqual(desktop.launch_command(), [r'C:\Apps\Mondesk\Mondesk.exe'])
+        exe = str(Path('/Apps/Mondesk/Mondesk.exe'))   # a path every system can read
+        with patch.object(desktop, 'FROZEN', False), patch.object(sys, 'executable', exe):
+            self.assertEqual(desktop.launch_command(), [exe])
             command = desktop.launch_command(['--demo'])
-            self.assertEqual((command[0], command[-1]), (r'C:\Apps\Mondesk\Mondesk.exe', '--demo'))
+            self.assertEqual((command[0], command[-1]), (exe, '--demo'))
             self.assertTrue(command[1].endswith('desktop.py'))
 
     def test_autostart_goes_through_the_switch_only(self):
