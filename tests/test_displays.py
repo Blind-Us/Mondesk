@@ -5,14 +5,17 @@ import displays
 class DisplayTests(unittest.TestCase):
     def setUp(self):
         self.screens=[dict(name='DISPLAY1',primary=True,current=dict(w=2560,h=1600,hz=240),modes=[dict(w=960,h=640)]),dict(name='DISPLAY2',primary=False,current=dict(w=1920,h=1080,hz=60),modes=[dict(w=960,h=640),dict(w=1920,h=1080)])]
+        # the same pretend screens on every system (Windows reads them one way, Linux another)
         self.patcher=patch.object(displays,'_windows',return_value=self.screens)
         self.patcher.start()
+        self.linux=patch.object(displays,'_linux',return_value=self.screens)
+        self.linux.start()
         self.applier=patch.object(displays,'_apply',return_value=dict(ok=True,message='ok'))
         self.apply=self.applier.start()
     def tearDown(self):
         for d in displays._pending.values(): d['timer'].cancel()
         displays._pending.clear()
-        self.patcher.stop();self.applier.stop()
+        self.patcher.stop();self.linux.stop();self.applier.stop()
     def test_primary_blocked(self):
         self.assertFalse(displays.set_mode('DISPLAY1',960,640,'try')['ok'])
         self.apply.assert_not_called()
