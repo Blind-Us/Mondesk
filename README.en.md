@@ -19,7 +19,7 @@ Get it from [Releases](../../releases). Unzip and double-click: no Python to ins
 - Start with the computer, full screen: the "應用程式" (Application) section of the settings page. The window reopens on the same screen, at the same place and size as when it was closed.
 - Opening `Mondesk.exe` again does not start a second copy; it brings the existing window to the front.
 - Apple Music lyrics and YouTube / Bilibili video sync need the browser extension. It ships inside the package, and the "正在播放" (Now Playing) section of the settings page walks you through installing it (Chrome does not let programs install extensions, so it has to be loaded by hand once).
-- On first launch Windows may show "Windows protected your PC": the program is not code-signed. Click "More info" → "Run anyway". Computers with **Smart App Control** turned on refuse every unsigned program; use the source version below (`Mondesk.bat`) there.
+- On first launch Windows may show "Windows protected your PC": the program is not code-signed. Click "More info" → "Run anyway". Computers with **Smart App Control** turned on refuse every unsigned program; use the source version below (`Mondesk.bat`, needs Python) there.
 - On Linux, the system volume card and system-wide "now playing" need Windows; everything else works the same.
 
 The interface is in Traditional Chinese.
@@ -48,7 +48,7 @@ The layout is yours: touch the screen, tap the pencil at the top left, then drag
 ## Try it first (no account or device needed)
 
 ```bash
-run-demo.bat        # Windows; on Linux ./run-demo.sh
+Mondesk.bat --demo      # Windows; on Linux ./mondesk.sh --demo
 ```
 
 Demo mode scripts the printer, music (with lyrics), AI quota and weather in a loop of about four minutes: a print finishes, the second one fails, quota passes 80%, songs change, rain is coming. The character, event log, modes and layout editor are all real. Your settings are neither read nor written.
@@ -56,26 +56,23 @@ Demo mode scripts the printer, music (with lyrics), AI quota and weather in a lo
 ## Check that this copy works
 
 ```bash
-check.bat           # Windows; on Linux ./check.sh
+.venv\Scripts\python tools\check.py     # Windows; on Linux .venv/bin/python tools/check.py
 ```
 
-Checks packages, runs the Python and JavaScript tests (JavaScript is skipped without Node.js), then starts a demo server once to check the pages and API. No account, printer or key needed.
+(The `.venv` is created by the first run of `Mondesk.bat` / `./mondesk.sh`.) Checks packages, runs the Python and JavaScript tests (JavaScript is skipped without Node.js), then starts a demo server once to check the pages and API. No account, printer or key needed.
 
 ## Install and run from source
 
 Needs Python 3.10 or later.
 
 ```bash
-# Windows
-run.bat
-
-# Linux
-./run.sh
+Mondesk.bat         # Windows (or double-click it)
+./mondesk.sh        # Linux
 ```
 
-The first start creates a virtual environment, installs packages and creates the user settings from `config.example.json`; no real user settings are kept in the program folder.
+These are the only two launchers. The first start creates a virtual environment, installs packages and creates the user settings from `config.example.json`; no real user settings are kept in the program folder. The panel opens in its own window; on Linux without a usable web view it opens in the browser instead (as does `--browser`).
 
-As its own window (not a browser tab): `Mondesk.bat` on Windows, `./run-desktop.sh` on Linux. Settings live in `%LOCALAPPDATA%/DeskMon/config.json` on Windows and `$XDG_CONFIG_HOME/DeskMon/config.json` on Linux (`~/.config/DeskMon/config.json` when unset). Server and desktop share this path; use `--config` to point at another file during development.
+Settings live in `%LOCALAPPDATA%/DeskMon/config.json` on Windows and `$XDG_CONFIG_HOME/DeskMon/config.json` on Linux (`~/.config/DeskMon/config.json` when unset). Server and desktop share this path; use `--config` to point at another file during development.
 
 The downloadable application is built with `python tools/build_app.py` (needs `pip install -r requirements-desktop.txt -r requirements-build.txt`); it builds only for the system it runs on. Pushing a tag starting with `v` makes [.github/workflows/release.yml](.github/workflows/release.yml) build both the Windows and Linux versions on GitHub and attach them to Releases. Icons are drawn by `python tools/make_icons.py`. The application creates `browser-extension/` next to the user settings, with the pairing address set to the real port; Chrome loads "Mondesk — Now Playing" from that folder.
 
@@ -87,7 +84,7 @@ Linux additionally needs `playerctl` (now playing) and `xrandr` (resolution list
 ## Settings and accounts
 
 **Every credential is entered by you on the settings page, and the only source of settings is the local user config.** The browser connector's pairing data is generated from it into the same user folder and is never part of a release package.
-When the settings page reads the settings, secret fields such as access codes show only `••••••`; the real values never leave the server.
+When the settings page reads the settings, secret fields such as access codes show only `••••••`: the real values stay in the settings file on your computer and are used only by the local Mondesk program (`127.0.0.1`); not even the settings page receives them, and they are never uploaded anywhere.
 
 | Feature | Needs | Default |
 |---|---|---|
@@ -126,7 +123,7 @@ When it is not running, the printer's LAN stream is used instead (LAN Only Livev
 ## Development
 
 ```bash
-python tools/check.py                        # packages, all tests, demo server (same as check.bat)
+python tools/check.py                        # packages, all tests, demo server
 python -m unittest discover -s tests -t .    # Python tests only
 node --test tests/*.cjs                      # JavaScript tests only (Node.js 18+)
 python tools/companion_eval.py               # Companion fixed event set and a day's line count

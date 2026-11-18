@@ -1,7 +1,7 @@
 """One command that says whether this copy of Mondesk is healthy.
 
-    check.bat            (Windows)      ./check.sh        (Linux / macOS)
-    python tools/check.py [--quick]
+    .venv/Scripts/python tools/check.py   (Windows)     .venv/bin/python tools/check.py   (Linux / macOS)
+    (the .venv is made by the first start of Mondesk.bat / mondesk.sh)   [--quick]
 
 1. Python version and the packages Mondesk needs (missing optional ones are only reported)
 2. the whole Python test suite
@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parent.parent
 REQUIRED = [("paho.mqtt.client", "paho-mqtt", "列印機監看")]
 OPTIONAL = [("anthropic", "anthropic", "Agent 使用 Claude（固定句子與本機 AI 不需要）"),
             ("imageio_ffmpeg", "imageio-ffmpeg", "列印機機艙直播"),
-            ("webview", "pywebview", "桌面視窗版（run-desktop）")]
+            ("webview", "pywebview", "獨立視窗（沒有時改開瀏覽器）")]
 if sys.platform == "win32":
     # Mondesk falls back to asking PowerShell when this can't load (e.g. Windows' app control
     # policy blocks the DLL, or a brand-new Python has no wheel yet): slower, but it works

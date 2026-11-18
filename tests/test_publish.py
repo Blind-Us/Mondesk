@@ -1,27 +1,23 @@
 import json
 import tempfile
 import unittest
-import zipfile
 from pathlib import Path
 from unittest.mock import patch
 from modules.apple_bridge import prepare_extension
-from tools.package_desktop import build
+from tools.build_app import stage_extension
 from user_paths import ensure_user_config
 
 
 class PublishTests(unittest.TestCase):
-    def test_public_package_has_templates_but_no_user_settings(self):
+    def test_released_extension_has_no_pairing_key_and_no_tests(self):
         with tempfile.TemporaryDirectory() as folder:
-            output = build(Path(folder) / 'desktop.zip')
-            with zipfile.ZipFile(output) as archive:
-                names = set(archive.namelist())
-                self.assertIn('DeskMon/desktop.py', names)
-                self.assertIn('DeskMon/user_paths.py', names)
-                self.assertIn('DeskMon/web/printer-render.js', names)
-                self.assertIn('DeskMon/apple-music-extension/video.js', names)
-                self.assertNotIn('DeskMon/config.json', names)
-                self.assertNotIn('DeskMon/apple-music-extension/config.js', names)
-                self.assertFalse(any('/.venv/' in n or '/__pycache__/' in n for n in names))
+            extension = stage_extension(Path(folder))
+            names = {p.relative_to(extension).as_posix() for p in extension.rglob('*') if p.is_file()}
+            self.assertIn('video.js', names)
+            self.assertIn('manifest.json', names)
+            self.assertIn('icons/icon128.png', names)
+            self.assertNotIn('config.js', names)
+            self.assertFalse(any(n.endswith('.cjs') for n in names))
 
     def test_extension_generated_only_next_to_user_config(self):
         with tempfile.TemporaryDirectory() as folder:

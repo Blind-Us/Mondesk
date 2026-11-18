@@ -2,15 +2,15 @@
 
 自動測試只能證明邏輯正確，不能代表 Chrome 長時間播放、真的列印機、Linux 或全新安裝都正常。這份清單是要在實機上手動做的部分，做完在「結果」欄填日期和 ✔／✘，有問題就寫在備註。
 
-先跑一次 `check.bat`（Linux：`./check.sh`），全部通過再開始。
+先跑一次 `tools/check.py`（見 README「檢查這份程式是否正常」），全部通過再開始。
 
 ## 0. 目前已經由自動檢查涵蓋的
 
 | 項目 | 怎麼驗證 |
 |---|---|
-| Python 測試、JavaScript 測試 | `check.bat` |
-| 示範模式整個流程（事件 → 角色台詞） | `check.bat` 的「示範伺服器」 |
-| 沒有金鑰、沒有設備也能展示 | `run-demo.bat` |
+| Python 測試、JavaScript 測試 | `tools/check.py` |
+| 示範模式整個流程（事件 → 角色台詞） | `tools/check.py` 的「示範伺服器」 |
+| 沒有金鑰、沒有設備也能展示 | `Mondesk.bat --demo` |
 | 執行時不寫入程式資料夾 | `tests/test_weather_demo.py` |
 | Companion 固定事件集（12 個案例）與一天的說話次數 | `python tools/companion_eval.py` |
 
@@ -65,8 +65,8 @@
 | # | 步驟 | 應該看到 | Windows | Linux |
 |---|---|---|---|---|
 | 4.1 | 全新機器（只有 Python）：解壓 `DeskMon-desktop.zip`，執行 `check` | 全部通過（沒有 Node.js 時略過 JavaScript） | | |
-| 4.2 | 執行 `run-demo` | 瀏覽器開啟示範面板 | | |
-| 4.3 | 執行 `run-desktop` | 視窗出現在小螢幕；設定檔建立在使用者資料夾 | | |
+| 4.2 | 執行 `Mondesk.bat --demo` | 瀏覽器開啟示範面板 | | |
+| 4.3 | 執行 `Mondesk.bat` | 視窗出現在小螢幕；設定檔建立在使用者資料夾 | | |
 | 4.4 | 用新版 zip 覆蓋程式資料夾後再啟動 | 列印機存取碼、配對、主題、版面都還在 | | |
 | 4.5 | 更新後不重新載入擴充功能 | 歌詞／影片頁和設定頁都提示擴充功能是舊版 | | |
 | 4.6 | 把程式資料夾設成唯讀後啟動 | 正常執行（所有檔案寫在使用者資料夾） | | |

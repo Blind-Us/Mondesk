@@ -1,7 +1,7 @@
 """Demo mode: every data source is replaced by a scripted one, so the whole flow can be shown
 and re-tested with no printer, no browser extension, no account and no API key.
 
-    python server.py --demo            (or run-demo.bat / run-demo.sh)
+    python server.py --demo            (or Mondesk.bat --demo / ./mondesk.sh --demo)
 
 The script loops every PERIOD seconds and is a pure function of the elapsed time, so a run is
 repeatable: the print finishes, a second print fails, the Codex quota crosses 80 %, songs

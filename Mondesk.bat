@@ -1,5 +1,7 @@
 @echo off
-rem Mondesk from source, in its own window, without a console. First run sets up Python packages.
+rem Mondesk from source, in its own window, without a console. First run sets up the Python packages.
+rem   Mondesk.bat           the panel
+rem   Mondesk.bat --demo    scripted data: no printer, account or key; nothing is saved
 cd /d "%~dp0"
 if not exist .venv (
   python -m venv .venv || (echo Python 3.10 or newer is needed: https://www.python.org/downloads/ & pause & exit /b 1)

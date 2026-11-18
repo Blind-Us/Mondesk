@@ -19,7 +19,7 @@
 - 開機自動啟動、全螢幕：設定頁的「應用程式」。視窗會開在上次關閉時的螢幕、位置和大小。
 - 再點一次 `Mondesk.exe` 不會開第二個，只會把原本的視窗叫到前面。
 - Apple Music 歌詞、YouTube／B 站影片同步需要瀏覽器擴充功能。擴充功能已經包在裡面，設定頁「正在播放」有一步一步的安裝說明（Chrome 不允許程式自動安裝，要手動載入一次）。
-- Windows 第一次開啟可能顯示「Windows 已保護您的電腦」：這個程式沒有購買簽章，按「其他資訊」→「仍要執行」。開著「智慧型應用程式控制」的電腦不允許任何沒有簽章的程式，請改用下面的原始碼版（`Mondesk.bat`）。
+- Windows 第一次開啟可能顯示「Windows 已保護您的電腦」：這個程式沒有購買簽章，按「其他資訊」→「仍要執行」。開著「智慧型應用程式控制」的電腦不允許任何沒有簽章的程式，請改用下面的原始碼版（`Mondesk.bat`，需要先裝 Python）。
 - Linux 版的系統音量卡片和「系統正在播放」需要 Windows；其他功能相同。
 
 ## 這是什麼
@@ -46,7 +46,7 @@ Windows 與 Linux 都可使用，所有設定都在本機網頁完成。
 ## 先試試看（不用任何帳號或設備）
 
 ```bash
-run-demo.bat        # Windows；Linux 用 ./run-demo.sh
+Mondesk.bat --demo      # Windows；Linux 用 ./mondesk.sh --demo
 ```
 
 示範模式用腳本產生列印機、音樂（含歌詞）、AI 額度和天氣的資料，大約四分鐘一輪：列印完成、第二次列印失敗、額度超過 80%、換歌、快下雨。角色、事件紀錄、情境模式、版面編輯都是真的在運作。不會讀寫你的設定。
@@ -54,26 +54,23 @@ run-demo.bat        # Windows；Linux 用 ./run-demo.sh
 ## 檢查這份程式是否正常
 
 ```bash
-check.bat           # Windows；Linux 用 ./check.sh
+.venv\Scripts\python tools\check.py     # Windows；Linux 用 .venv/bin/python tools/check.py
 ```
 
-會檢查套件、跑完 Python 與 JavaScript 測試（沒裝 Node.js 會略過 JavaScript），再啟動一次示範伺服器確認頁面和 API。不需要帳號、列印機或金鑰。
+（`.venv` 在第一次執行 `Mondesk.bat`／`./mondesk.sh` 時建立。）會檢查套件、跑完 Python 與 JavaScript 測試（沒裝 Node.js 會略過 JavaScript），再啟動一次示範伺服器確認頁面和 API。不需要帳號、列印機或金鑰。
 
 ## 安裝與啟動
 
 需要 Python 3.10 以上。
 
 ```bash
-# Windows
-run.bat
-
-# Linux
-./run.sh
+Mondesk.bat         # Windows（點兩下也可以）
+./mondesk.sh        # Linux
 ```
 
-第一次啟動會建立虛擬環境、安裝套件，並以 `config.example.json` 建立使用者設定；程式目錄不保存正式使用者設定。
+只有這兩個啟動檔。第一次啟動會建立虛擬環境、安裝套件，並以 `config.example.json` 建立使用者設定；程式目錄不保存正式使用者設定。面板開在獨立視窗；Linux 沒有可用的網頁視窗元件時改開瀏覽器，加 `--browser` 也一樣。
 
-獨立視窗（不是瀏覽器分頁）：Windows 點 `Mondesk.bat`，Linux 用 `./run-desktop.sh`。Windows 使用 `%LOCALAPPDATA%/DeskMon/config.json`，Linux 使用 `$XDG_CONFIG_HOME/DeskMon/config.json`（未設定時為 `~/.config/DeskMon/config.json`）。伺服器與 desktop 共用此設定路徑；開發可用 `--config` 明確指定其他檔案。
+設定檔：Windows 使用 `%LOCALAPPDATA%/DeskMon/config.json`，Linux 使用 `$XDG_CONFIG_HOME/DeskMon/config.json`（未設定時為 `~/.config/DeskMon/config.json`）。伺服器與 desktop 共用此設定路徑；開發可用 `--config` 明確指定其他檔案。
 
 下載用的應用程式由 `python tools/build_app.py` 產生（需要 `pip install -r requirements-desktop.txt -r requirements-build.txt`），它只能做出執行它的那個系統的版本；推一個 `v` 開頭的標籤，[.github/workflows/release.yml](.github/workflows/release.yml) 會在 GitHub 上把 Windows 和 Linux 兩個版本都做出來並掛到 Releases。圖示由 `python tools/make_icons.py` 畫出。應用程式在使用者設定旁產生 `browser-extension/`，配對網址使用實際桌面服務連接埠。Chrome 從這個資料夾載入「Mondesk — Now Playing」。
 
@@ -85,7 +82,7 @@ Linux 額外需要：`playerctl`（正在播放）、`xrandr`（解析度清單�
 ## 設定與帳號
 
 **所有憑證由你在設定頁輸入，設定來源只有本機 user config**。瀏覽器連接器的必要配對資料由該設定產生在同一個使用者目錄，不會放進發佈包。
-設定頁讀取設定時，存取碼等機密欄位只會顯示 `••••••`，原值不會離開伺服器。
+設定頁讀取設定時，存取碼等機密欄位只會顯示 `••••••`：原值只存在你電腦上的設定檔裡，由本機的 Mondesk 程式（`127.0.0.1`）使用，連設定頁本身都拿不到，更不會上傳到任何地方。
 
 | 功能 | 需要什麼 | 預設 |
 |---|---|---|
@@ -124,7 +121,7 @@ Mondesk 只綁定 `127.0.0.1`。以下是它會主動連線的地方，非預設
 ## 開發
 
 ```bash
-python tools/check.py                        # 套件、全部測試、示範伺服器（同 check.bat）
+python tools/check.py                        # 套件、全部測試、示範伺服器
 python -m unittest discover -s tests -t .    # 只跑 Python 測試
 node --test tests/*.cjs                      # 只跑 JavaScript 測試（需要 Node.js 18 以上）
 python tools/companion_eval.py               # Companion 固定事件集與一天的說話次數
