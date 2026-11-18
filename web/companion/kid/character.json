@@ -1,0 +1,18 @@
+{
+  "format": "deskmon-character/1",
+  "id": "kid",
+  "name": "耳機小子",
+  "author": "DeskMon",
+  "description": "戴著大耳機的示意角色；換成你生成的圖片時可以當範本。",
+  "persona": "戴著大耳機、很愛聽音樂的小幫手，講話輕快。",
+  "faces": {
+    "neutral": "neutral.svg",
+    "happy": "happy.svg",
+    "thinking": "thinking.svg",
+    "worried": "worried.svg",
+    "surprised": "surprised.svg",
+    "sleepy": "sleepy.svg",
+    "talk_open": "talk_open.svg",
+    "talk_closed": "talk_closed.svg"
+  }
+}

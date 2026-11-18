@@ -1,13 +1,82 @@
 {
   "manifest_version": 3,
-  "name": "DeskMon — Apple Music 原生歌詞",
-  "version": "0.1.4",
-  "action": {"default_title": "DeskMon Apple Music 連線狀態", "default_popup": "status.html"},
-  "description": "將 Apple Music 原生歌詞與播放進度傳到本機 DeskMon，支援點擊歌詞跳轉。",
-  "host_permissions": ["http://127.0.0.1/*"],
-  "background": {"service_worker": "background.js"},
+  "name": "Mondesk — Now Playing",
+  "version": "0.4.6",
+  "description": "把 Apple Music 歌詞、YouTube／B 站播放資訊送到 Mondesk 面板；Alt+Shift+D 把影片送到副螢幕全螢幕播放。",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "Mondesk 連線狀態",
+    "default_popup": "status.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "host_permissions": [
+    "http://127.0.0.1/*",
+    "https://music.apple.com/*",
+    "https://www.youtube.com/*",
+    "https://music.youtube.com/*",
+    "https://www.bilibili.com/*",
+    "https://player.bilibili.com/*"
+  ],
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "system.display",
+    "storage"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "content_scripts": [
-    {"matches": ["https://music.apple.com/*"], "js": ["page.js"], "world": "MAIN", "run_at": "document_start"},
-    {"matches": ["https://music.apple.com/*"], "js": ["content.js"], "run_at": "document_start"}
-  ]
+    {
+      "matches": [
+        "https://music.apple.com/*"
+      ],
+      "js": [
+        "page.js"
+      ],
+      "world": "MAIN",
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://music.apple.com/*",
+        "https://www.youtube.com/*",
+        "https://music.youtube.com/*",
+        "https://www.bilibili.com/*"
+      ],
+      "js": [
+        "content.js",
+        "video.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://player.bilibili.com/*"
+      ],
+      "js": [
+        "embed.js"
+      ],
+      "all_frames": true,
+      "run_at": "document_start"
+    }
+  ],
+  "commands": {
+    "side-screen": {
+      "suggested_key": {
+        "default": "Alt+Shift+D"
+      },
+      "description": "把影片送到副螢幕全螢幕播放（再按一次回來）"
+    }
+  }
 }

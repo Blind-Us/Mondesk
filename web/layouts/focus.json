@@ -1,0 +1,41 @@
+{
+  "format": "deskmon-layout/1",
+  "name": "專注",
+  "layout": {
+    "items": [
+      {
+        "id": "clock",
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      {
+        "id": "weather",
+        "x": 4,
+        "y": 0,
+        "w": 2,
+        "h": 4
+      },
+      {
+        "id": "tokens",
+        "x": 0,
+        "y": 4,
+        "w": 4,
+        "h": 4
+      },
+      {
+        "id": "companion",
+        "x": 4,
+        "y": 4,
+        "w": 2,
+        "h": 4
+      }
+    ],
+    "hidden": [
+      "bambu",
+      "media",
+      "system"
+    ]
+  }
+}

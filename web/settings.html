@@ -3,61 +3,182 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>DeskMon 設定</title>
+<title>Mondesk 設定</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="settings.css?v=20">
+<link rel="stylesheet" href="settings.css?v=37">
 </head>
 <body>
 <div class="wrap">
-  <h1>DeskMon 設定 <a href="/">回到面板 →</a></h1>
+  <h1><span id="pageTitle">設定</span> <a href="/">回到面板 →</a></h1>
 
   <div class="col">
-    <section style="--c:var(--printer,#f2a541)">
-      <h2><i></i>3D 列印機 · Bambu Lab <label class="toggle"><input type="checkbox" data-k="printer.enabled">啟用</label></h2>
-      <div class="row">
-        <label>名稱<input type="text" data-k="printer.title" placeholder="Bambu Lab"></label>
-        <label>型號<input type="text" data-k="printer.model" placeholder="X2D"></label>
-      </div>
-      <div class="row three">
-        <label>IP 位址<input type="text" data-k="printer.ip" placeholder="192.168.1.100" inputmode="decimal"></label>
-        <label>序號<input type="text" data-k="printer.serial" placeholder="設定 → 裝置"></label>
-        <label>LAN 存取碼<span class="pw"><input type="password" data-k="printer.access_code" placeholder="8 碼" autocomplete="off"><button type="button" data-reveal>顯示</button></span></label>
-      </div>
+    <section data-widget="bambu">
+      <h2><i></i>列印機</h2>
+      <div id="printers"></div>
+      <button type="button" class="add-printer" id="addPrinter">＋ 新增列印機</button>
+      <p class="hint">兩台以上會左右滑動切換；4 欄寬時並排。</p>
+      <div class="card-colors" data-cards="bambu"></div>
     </section>
 
-    <section style="--c:var(--music,#7ee0b5)">
-      <h2><i></i>正在播放 <label class="toggle"><input type="checkbox" data-k="music.enabled">啟用</label></h2>
+    <section data-widget="media">
+      <h2><i></i>正在播放</h2>
       <label>名稱<input type="text" data-k="music.title" placeholder="Now Playing"></label>
-      <h3 class="sub">歌詞來源 <small>由上往下依序查詢；歌名與歌手會送到勾選的服務</small></h3>
-      <label class="toggle left"><input type="checkbox" data-k="music.lyrics_sources.lrclib">LRCLIB（公開免費 API，預設）</label>
-      <label class="toggle left"><input type="checkbox" data-k="music.lyrics_sources.kugou">酷狗（非官方介面，中文歌較多）</label>
-      <label class="toggle left"><input type="checkbox" data-k="music.lyrics_sources.netease">網易雲（非官方介面）</label>
-      <h3 class="sub">Apple Music 原生歌詞</h3>
-      <label class="toggle left"><input type="checkbox" data-k="music.apple_music_native">使用 Chrome 擴充功能讀取 Apple Music 網頁</label>
-      <p class="hint">首次使用請在專案資料夾執行 <code>python -m modules.apple_bridge</code> 產生配對金鑰（存於 config.json），再於 Chrome 載入 apple-music-extension 資料夾。</p>
+      <label class="toggle left"><input type="checkbox" data-k="music.apple_music_native">顯示 Apple Music 歌詞</label>
+      <details class="more guide" id="extGuide"><summary>安裝瀏覽器擴充功能</summary>
+        <p class="hint">同步歌詞、拖曳進度和影片需要它。裝一次就好。</p>
+        <ol class="steps">
+          <li><b>準備擴充功能資料夾</b>
+            <span class="btns"><button type="button" data-ext="prepare">準備擴充功能</button><button type="button" data-ext="open">開啟資料夾</button></span>
+            <code class="ext-path" id="extPath" hidden></code></li>
+          <li><b>打開 Chrome 的擴充功能頁</b>
+            <span>在 Chrome 網址列貼上：</span>
+            <span class="btns"><code>chrome://extensions</code><button type="button" data-copy="chrome://extensions">複製</button></span></li>
+          <li><b>打開右上角的「開發人員模式」</b></li>
+          <li><b>按左上角「載入未封裝項目」</b>
+            <span>選第 1 步的整個資料夾。Edge 用 <code>edge://extensions</code>。</span></li>
+          <li><b>播放 Apple Music 或 YouTube</b>
+            <span>下面「連線狀態」出現版本號就完成。</span></li>
+        </ol>
+        <p class="hint">Mondesk 更新後：在擴充功能頁按 ↻，再重新整理播放分頁。</p>
+        <p class="hint" id="extMsg" role="status"></p>
+      </details>
+      <h3 class="sub">連線狀態</h3>
+      <div class="diag" data-diag="media">讀取中…</div>
+      <div class="card-colors" data-cards="media"></div>
     </section>
 
-    <section style="--c:var(--codex,#8f7bff)">
+    <section data-widget="tokens">
       <h2><i></i>AI 用量</h2>
       <div class="row">
         <label class="toggle left"><input type="checkbox" data-k="codex.enabled">顯示 Codex</label>
         <label class="toggle left"><input type="checkbox" data-k="claude.enabled">顯示 Claude</label>
       </div>
-      <div class="row">
-        <label>Claude 5 小時預算（tokens）<input type="number" min="0" step="100000" data-k="claude.budget_5h" placeholder="例：5000000"></label>
-        <label>Claude 7 天預算（tokens）<input type="number" min="0" step="1000000" data-k="claude.budget_week" placeholder="例：50000000"></label>
-      </div>
-      <label class="toggle left"><input type="checkbox" data-k="claude.official_usage">讀取官方用量 %（使用本機 Claude Code 登入）</label>
-      <p class="hint">開啟後 DeskMon 會讀取你自己在這台電腦以 <code>claude</code> 指令登入的資料，向 Anthropic 查詢用量（每 5 分鐘一次）。登入資料不會儲存或傳到其他地方；關閉則只用上方預算估算。</p>
-      <div>
-      </div>
+      <label class="toggle left"><input type="checkbox" data-k="claude.official_usage">顯示 Claude 官方用量 %</label>
+      <details class="more"><summary>進階</summary>
+        <div class="row">
+          <label>Claude 5 小時上限<input type="number" min="0" step="100000" data-k="claude.budget_5h" placeholder="5000000"></label>
+          <label>Claude 7 天上限<input type="number" min="0" step="1000000" data-k="claude.budget_week" placeholder="50000000"></label>
+        </div>
+      </details>
+      <div class="card-colors" data-cards="codex,claude"></div>
     </section>
 
-    <section style="--c:#9aa0ff">
-      <h2><i></i>小螢幕與解析度</h2>
+    <section data-widget="clock">
+      <h2><i></i>時鐘</h2>
+      <h3 class="sub">樣式</h3>
+      <div class="clock-styles" id="clockStyles"></div>
       <div class="row">
-        <label>排版尺寸
+        <label class="toggle left"><input type="checkbox" data-k="clock.hour12">12 小時制</label>
+        <label class="toggle left"><input type="checkbox" data-k="clock.seconds">顯示秒</label>
+        <label class="toggle left"><input type="checkbox" data-k="clock.date">顯示日期</label>
+      </div>
+      <label>顏色
+        <select data-k="clock.color" id="clockColor">
+        </select>
+      </label>
+      <p class="hint">點面板上的時鐘卡片會開全螢幕，裡面有計時器和碼錶。</p>
+    </section>
+
+    <section data-widget="weather">
+      <h2><i></i>天氣</h2>
+      <label>名稱<input type="text" data-k="weather.title" placeholder="天氣"></label>
+      <label>城市或地名
+        <span class="pw"><input type="text" id="wxQuery" placeholder="例如：台北市、Taipei、新竹" autocomplete="off"><button type="button" id="wxSearch">搜尋</button></span>
+      </label>
+      <div class="presets" id="wxResults"></div>
+      <p class="hint" id="wxNow" role="status"></p>
+      <p class="hint">資料來源：Open-Meteo、挪威氣象局。只送出地點的經緯度。</p>
+      <div class="card-colors" data-cards="weather"></div>
+    </section>
+
+    <section id="companion" data-widget="companion">
+      <h2><i></i>Agent</h2>
+      <div class="characters" id="characters">讀取中…</div>
+      <div class="presets">
+        <button type="button" id="charImport">匯入角色…</button>
+        <button type="button" id="charExport">匯出</button>
+        <button type="button" id="charDelete">刪除</button>
+        <input type="file" id="charFile" accept=".zip,.json,application/zip,application/json" hidden>
+      </div>
+      <p class="hint" id="charMsg" role="status"></p>
+      <label>說話方式
+        <select data-k="companion.provider">
+          <option value="rule">固定句子（免費）</option>
+          <option value="anthropic">Claude</option>
+          <option value="ollama">本機 AI（Ollama）</option>
+        </select>
+      </label>
+      <div data-cp-for="anthropic">
+        <label>Claude API 金鑰<span class="pw"><input type="password" data-k="companion.api_key" placeholder="sk-ant-…" autocomplete="off"><button type="button" data-reveal>顯示</button></span></label>
+      </div>
+      <div class="row" data-cp-for="ollama">
+        <label>位址<input type="text" data-k="companion.ollama_url" placeholder="http://127.0.0.1:11434"></label>
+        <label>模型<input type="text" data-k="companion.ollama_model" placeholder="qwen3:8b"></label>
+      </div>
+      <details class="more"><summary>進階</summary>
+      <div data-cp-for="anthropic">
+        <div class="row three">
+          <label>模型
+            <select data-k="companion.model">
+              <option value="claude-opus-5-5">Claude Opus 5.5</option>
+              <option value="claude-sonnet-5-5">Claude Sonnet 5.5</option>
+              <option value="claude-haiku-5-5">Claude Haiku 5.5</option>
+            </select>
+          </label>
+          <label>小事情用
+            <select data-k="companion.small_model">
+              <option value="">同主要模型</option>
+              <option value="claude-haiku-5-5">Claude Haiku 5.5（較便宜）</option>
+              <option value="claude-sonnet-5-5">Claude Sonnet 5.5</option>
+            </select>
+          </label>
+          <label>回答速度
+            <select data-k="companion.effort">
+              <option value="low">快</option>
+              <option value="medium">中</option>
+              <option value="high">仔細</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <h3 class="sub">什麼時候說話</h3>
+      <div class="row">
+        <label class="toggle left"><input type="checkbox" data-k="companion.triggers.print_finished">列印完成</label>
+        <label class="toggle left"><input type="checkbox" data-k="companion.triggers.print_failed">列印失敗或停止</label>
+        <label class="toggle left"><input type="checkbox" data-k="companion.triggers.quota_high">AI 用量快滿</label>
+        <label class="toggle left"><input type="checkbox" data-k="companion.triggers.song_change">換歌</label>
+        <label class="toggle left"><input type="checkbox" data-k="companion.triggers.long_work">工作太久</label>
+        <label class="toggle left"><input type="checkbox" data-k="companion.triggers.timer_done">計時結束</label>
+        <label class="toggle left"><input type="checkbox" data-k="companion.triggers.rain_soon">快下雨了</label>
+      </div>
+      <div class="row">
+        <label>用量到幾 % 提醒<input type="number" min="50" max="100" step="5" data-k="companion.quota_threshold" placeholder="80"></label>
+        <label>工作幾分鐘提醒<input type="number" min="30" max="480" step="15" data-k="companion.work_minutes" placeholder="120"></label>
+        <label>每小時最多說幾句<input type="number" min="1" max="120" step="1" data-k="companion.max_calls_per_hour" placeholder="20"></label>
+        <label>換歌時說話的機率 <b id="songChanceVal" class="val"></b><input type="range" min="0" max="1" step="0.1" data-k="companion.song_chance"></label>
+      </div>
+      <h3 class="sub">試試看 <small>先按「套用」</small></h3>
+      <div class="presets" id="cpTests">
+        <button type="button" data-cp-test="print_finished">列印完成</button>
+        <button type="button" data-cp-test="print_failed">列印失敗</button>
+        <button type="button" data-cp-test="quota_high">用量 86%</button>
+        <button type="button" data-cp-test="song_change">換歌</button>
+        <button type="button" data-cp-test="long_work">工作 2 小時</button>
+        <button type="button" data-cp-test="timer_done">計時結束</button>
+        <button type="button" data-cp-test="rain_soon">快下雨</button>
+        <button type="button" data-cp-test="tap">點臉</button>
+      </div>
+      <p class="hint" id="cpTestStatus" role="status"></p>
+      </details>
+      <div class="card-colors" data-cards="companion"></div>
+    </section>
+
+    <section data-global>
+      <h2><i></i>螢幕</h2>
+      <div class="row">
+        <label>畫面比例
           <select id="layoutSize">
             <option value="960,640">960×640</option>
             <option value="480,320">480×320</option>
@@ -70,28 +191,107 @@
         </label>
         <label>文字大小 <b id="scaleVal" class="val"></b><input type="range" min="0.8" max="1.4" step="0.05" data-k="display.text_scale"></label>
       </div>
-      <h3 class="sub">螢幕解析度</h3>
+      <h3 class="sub">解析度</h3>
       <div id="displays" class="displays">正在偵測小螢幕…</div>
     </section>
 
-    <section style="--c:var(--accent)">
-      <h2><i></i>顏色主題</h2>
-      <div class="swatches" id="bgs"></div>
-      <div class="presets" id="presets"></div>
-      <div class="colors">
-        <label class="color"><span>印表機</span><input type="color" data-k="theme.printer"></label>
-        <label class="color"><span>音樂</span><input type="color" data-k="theme.music"></label>
-        <label class="color"><span>Codex 漸層 1</span><input type="color" data-k="theme.codex.0"></label>
-        <label class="color"><span>Codex 漸層 2</span><input type="color" data-k="theme.codex.1"></label>
-        <div class="grad" id="gCodex"></div>
-        <label class="color"><span>Claude 漸層 1</span><input type="color" data-k="theme.claude.0"></label>
-        <label class="color"><span>Claude 漸層 2</span><input type="color" data-k="theme.claude.1"></label>
-        <div class="grad" id="gClaude"></div>
+    <section data-global>
+      <h2><i></i>版面與情境模式</h2>
+      <div class="row">
+        <label>情境模式
+          <select data-k="display.mode">
+            <option value="">自訂（我自己排的版面）</option>
+            <option value="focus">專注：時鐘、計時與 AI 用量</option>
+            <option value="print">列印：列印機放大</option>
+            <option value="rest">休息：音樂、天氣與音量</option>
+          </select>
+        </label>
       </div>
+      <label class="toggle left"><input type="checkbox" data-k="display.auto_mode">開始列印時自動切到「列印」模式（可以在面板上手動切回）</label>
+      <label class="toggle left"><input type="checkbox" data-k="display.toasts">角色沒說的事件，在面板下方顯示提示</label>
+      <p class="hint">面板左上角也能切換。模式開著時按鉛筆，改的是該模式的版面。</p>
+      <h3 class="sub">版面範本與版面包</h3>
+      <div class="presets" id="layoutPacks">
+        <button type="button" data-pack="focus">套用「專注」</button>
+        <button type="button" data-pack="media">套用「媒體」</button>
+        <button type="button" data-pack="print">套用「列印」</button>
+        <button type="button" id="packImport">匯入版面包…</button>
+        <button type="button" id="packExport">匯出目前版面</button>
+        <input type="file" id="packFile" accept=".json,application/json" hidden>
+      </div>
+      <p class="hint" id="packMsg" role="status">版面包不含帳號、存取碼或金鑰。</p>
+    </section>
+
+    <section data-global id="appBox" hidden>
+      <h2>應用程式</h2>
+      <label class="toggle left"><input type="checkbox" id="appAutostart">開機後自動啟動 Mondesk</label>
+      <label class="toggle left"><input type="checkbox" id="appFullscreen">全螢幕</label>
+      <p class="hint">視窗會開在上次關閉時的螢幕、位置和大小。</p>
+    </section>
+
+    <section data-global id="themeBox">
+      <h2><i></i>主題</h2>
+      <div class="swatches" id="bgs"></div>
+      <label class="color own-bg"><span>自訂背景色</span><input type="color" id="bgColor" aria-label="自訂背景色"></label>
+      <div class="wall-row">
+        <button type="button" id="wallPick">背景圖片…</button>
+        <button type="button" id="wallRemove" hidden>移除圖片</button>
+        <input type="file" id="wallFile" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+        <span class="hint" id="wallMsg" role="status"></span>
+      </div>
+      <div class="row" id="wallOpts" hidden>
+        <label>壓暗 <b id="wallDimVal" class="val"></b><input type="range" min="0" max="90" step="5" data-wall="dim"></label>
+        <label>模糊 <b id="wallBlurVal" class="val"></b><input type="range" min="0" max="40" step="2" data-wall="blur"></label>
+      </div>
+      <div class="presets" id="styles" role="group" aria-label="風格"></div>
+      <div class="presets" id="shapes" role="group" aria-label="卡片外型"></div>
+      <label>動畫
+        <select data-k="theme.motion">
+          <option value="bouncy">Q 彈</option>
+          <option value="calm">一般</option>
+          <option value="off">關閉</option>
+        </select>
+      </label>
+      <h3>主題色</h3>
+      <p class="hint">套用到所有卡片；錯誤和警示的顏色不變。</p>
+      <div class="accent-row">
+        <label class="color"><span>主題色</span><input type="color" data-k="theme.accent"></label>
+        <div class="presets" id="accents"></div>
+      </div>
+      <label>跟著專輯封面
+        <select data-k="theme.cover">
+          <option value="">不跟</option>
+          <option value="card">正在播放卡片</option>
+          <option value="theme">整個主題</option>
+        </select>
+      </label>
+      <h3>卡片顏色</h3>
+      <p class="hint" id="cardSummary"></p>
+      <div class="presets" id="presets"></div>
+      <h3>情境模式的主題色</h3>
+      <p class="hint">切到該模式時使用；沒打開的用主題色。</p>
+      <div id="modeColors"></div>
+      <h3>夜間</h3>
+      <label class="toggle left"><input type="checkbox" data-night="on">晚上換成另一個背景</label>
+      <div class="row three" id="nightRow">
+        <label>開始（時）<input type="number" min="0" max="23" data-night="from"></label>
+        <label>結束（時）<input type="number" min="0" max="23" data-night="to"></label>
+        <label>背景<select data-night="background" id="nightBg"></select></label>
+      </div>
+    </section>
+
+    <section id="diagnostics" data-global>
+      <h2><i></i>連線診斷</h2>
+      <div class="diag" data-diag="all">讀取中…</div>
+    </section>
+    <section id="eventlog" data-global>
+      <h2><i></i>事件紀錄</h2>
+      <p class="hint">同一件事只記一次。</p>
+      <div class="events" id="events">讀取中…</div>
     </section>
   </div>
 
-  <div class="preview">
+  <div class="preview" data-global>
     <section>
       <h2><i style="background:var(--accent)"></i>預覽</h2>
       <div class="frame" id="frame"><iframe id="pv" src="/" width="960" height="640" title="面板預覽"></iframe></div>
@@ -110,7 +310,7 @@
 </div></div>
 
 <script src="api.js?v=1"></script>
-<script src="layout.js?v=18"></script>
-<script src="settings.js?v=21"></script>
+<script src="layout.js?v=33"></script>
+<script src="settings.js?v=42"></script>
 </body>
 </html>

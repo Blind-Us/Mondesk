@@ -1,0 +1,47 @@
+{
+  "format": "deskmon-layout/1",
+  "name": "媒體",
+  "layout": {
+    "items": [
+      {
+        "id": "media",
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 6
+      },
+      {
+        "id": "system",
+        "x": 0,
+        "y": 6,
+        "w": 4,
+        "h": 2
+      },
+      {
+        "id": "clock",
+        "x": 4,
+        "y": 0,
+        "w": 2,
+        "h": 3
+      },
+      {
+        "id": "weather",
+        "x": 4,
+        "y": 3,
+        "w": 2,
+        "h": 3
+      },
+      {
+        "id": "companion",
+        "x": 4,
+        "y": 6,
+        "w": 2,
+        "h": 2
+      }
+    ],
+    "hidden": [
+      "bambu",
+      "tokens"
+    ]
+  }
+}

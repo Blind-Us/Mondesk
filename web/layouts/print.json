@@ -1,0 +1,35 @@
+{
+  "format": "deskmon-layout/1",
+  "name": "列印",
+  "layout": {
+    "items": [
+      {
+        "id": "bambu",
+        "x": 0,
+        "y": 0,
+        "w": 4,
+        "h": 8
+      },
+      {
+        "id": "companion",
+        "x": 4,
+        "y": 0,
+        "w": 2,
+        "h": 4
+      },
+      {
+        "id": "tokens",
+        "x": 4,
+        "y": 4,
+        "w": 2,
+        "h": 4
+      }
+    ],
+    "hidden": [
+      "media",
+      "system",
+      "clock",
+      "weather"
+    ]
+  }
+}

@@ -22,6 +22,16 @@ def _run(cmd):
         return ""
 
 
+def extension_version():
+    """Version of the browser extension that ships with this Mondesk ('' if unknown)."""
+    from pathlib import Path
+    try:
+        manifest = Path(__file__).resolve().parent.parent / "apple-music-extension" / "manifest.json"
+        return str(_json.loads(manifest.read_text(encoding="utf-8")).get("version") or "")
+    except (OSError, ValueError):
+        return ""
+
+
 def _secs(td):
     return td.total_seconds() if hasattr(td, "total_seconds") else td / 1e7
 
@@ -177,224 +187,43 @@ def itunes_lookup(title, artist, album):
     return {}
 
 
-def _download(url):
+def _download(url, limit=None):
     try:
-        return _ur.urlopen(_ur.Request(url, headers={"User-Agent": "DeskMon"}), timeout=8).read()
+        with _ur.urlopen(_ur.Request(url, headers={"User-Agent": "Mozilla/5.0 Mondesk"}), timeout=8) as r:
+            if limit is None:
+                return r.read()
+            body = r.read(limit + 1)
+            return body if len(body) <= limit else None
     except Exception:
         return None
+
+
+def _image_type(b):
+    """MIME type of a picture by its first bytes, or None when it isn't one."""
+    if b[:3] == b"\xff\xd8\xff": return "image/jpeg"
+    if b[:8] == b"\x89PNG\r\n\x1a\n": return "image/png"
+    if b[:6] in (b"GIF87a", b"GIF89a"): return "image/gif"
+    if b[:4] == b"RIFF" and b[8:12] == b"WEBP": return "image/webp"
+    if b[4:12] in (b"ftypavif", b"ftypavis"): return "image/avif"
+    return None
 
 
 def _sniff(b):
     return "image/png" if b[1:4] == b"PNG" else "image/jpeg"
 
 
-# ---- lyrics (LRCLIB: free, synced LRC) ----
+# ---- helpers for the iTunes lookup (cover art + real song length) ----
 import json as _json
-import re as _re
 import urllib.parse as _up
 import urllib.request as _ur
 
-_LRC = _re.compile(r"\[(\d+):(\d+(?:\.\d+)?)\]")
-_NOISE = _re.compile(r"[\(\[（【『「].*?[\)\]）】』」]|official.*$|music video|mv|lyrics?|歌詞|動態歌詞", _re.I)
-
-
-def _lrclib(path, params):
-    url = f"https://lrclib.net/api/{path}?" + _up.urlencode(params)
-    req = _ur.Request(url, headers={"User-Agent": "DeskMon (github.com/deskmon)"})
-    try:
-        return _json.load(_ur.urlopen(req, timeout=8))
-    except Exception:
-        return None
-
-
-def _parse_lrc(text):
-    lines = []
-    for raw in (text or "").splitlines():
-        stamps = _LRC.findall(raw)
-        words = _LRC.sub("", raw).strip()
-        if _CREDIT.match(words):
-            continue  # drop credits before merging so they never swallow a lyric
-        for m, sec in stamps:
-            lines.append([int(m) * 60 + float(sec), words])
-    offset=_re.search(r"\[offset:([+-]?\d+)\]",text or "",_re.I)
-    if offset:
-        for line in lines:line[0]=max(0,line[0]-int(offset.group(1))/1000)
-    lines.sort(key=lambda l: l[0])
-    merged = []
-    for t, w in lines:
-        if merged and abs(merged[-1][0] - t) < 0.01 and w:
-            # bilingual files repeat the timestamp; keep it as one line + translation
-            merged[-1].append(w)
-        else:
-            merged.append([t, w])
-    return merged
-
-
-_CREDIT = _re.compile(r"^\s*[^:：\s]{1,10}\s*[:：]")  # "作词：…", "Composer: …" credit lines
-
 
 def _get_json(url, headers=None):
-    req = _ur.Request(url, headers={"User-Agent": "Mozilla/5.0 DeskMon", **(headers or {})})
+    req = _ur.Request(url, headers={"User-Agent": "Mozilla/5.0 Mondesk", **(headers or {})})
     try:
         return _json.load(_ur.urlopen(req, timeout=8))
     except Exception:
         return None
-
-
-def _kugou(title, artist, duration):
-    """KuGou public song search + lyric download; best coverage for Chinese songs."""
-    import base64
-    main_artist=_re.split(r"&|、|,|/",artist or "")[0].strip()
-    q = f"{main_artist} {title}".strip()
-    r = _get_json("http://mobilecdn.kugou.com/api/v3/search/song?" + _up.urlencode(
-        {"keyword": q, "page": 1, "pagesize": 10})) or {}
-    songs = ((r.get("data") or {}).get("info")) or []
-    cands = [{"name": x.get("songname", ""), "artists": [{"name": x.get("singername", "")}],
-              "duration": (x.get("duration") or 0) * 1000, "raw": x} for x in songs]
-    for c in _rank(cands, title, artist, duration)[:3]:
-        x = c["raw"]
-        s = _get_json("https://lyrics.kugou.com/search?" + _up.urlencode({
-            "ver": 1, "man": "yes", "client": "pc", "hash": x["hash"],
-            "duration": x["duration"] * 1000, "keyword": x.get("filename", "")})) or {}
-        for cand in (s.get("candidates") or [])[:3]:
-            d = _get_json("https://lyrics.kugou.com/download?" + _up.urlencode({
-                "ver": 1, "client": "pc", "id": cand["id"], "accesskey": cand["accesskey"],
-                "fmt": "lrc", "charset": "utf8"})) or {}
-            try:
-                lrc = base64.b64decode(d.get("content", "")).decode("utf-8", "replace")
-            except Exception:
-                continue
-            if _LRC.search(lrc) and len([l for l in _parse_lrc(lrc) if l[1] and not _NOTICE.search(l[1])]) >= 3:
-                return {"synced": _parse_lrc(lrc), "source": f"{x.get('singername')} — {x.get('songname')} (KuGou)"}
-    return None
-
-
-def _song_key(value):
-    import unicodedata
-    value=unicodedata.normalize("NFKC",value or "").casefold()
-    try:
-        from opencc import OpenCC
-        value=OpenCC('t2s').convert(value)
-    except ImportError:pass
-    return ''.join(c for c in value if c.isalnum())
-
-
-def _rank(songs, title, artist, duration):
-    """Reject other versions before scoring; compare title, performers and length."""
-    from difflib import SequenceMatcher
-    target=_song_key(_NOISE.sub('',title))
-    artists=[_song_key(a) for a in _re.split(r'&|、|,|/| feat\.? | featuring ',artist or '',flags=_re.I) if a.strip()]
-    variants=r'dj|remix|\brmx\b|伴奏|instrumental|live|翻唱|cover|降速|加速|混音|串烧|串燒|[01]\.[0-9]x'
-    original_flags={m.group().casefold() for m in _re.finditer(variants,title,_re.I)}
-    ranked=[]
-    for row in songs:
-        name=row.get('name','');performers=' '.join(a.get('name','') for a in row.get('artists',[]))
-        flags={m.group().casefold() for m in _re.finditer(variants,name,_re.I)}
-        if flags-original_flags:continue
-        candidate=_song_key(_NOISE.sub('',name))
-        similarity=SequenceMatcher(None,target,candidate).ratio()
-        if similarity<.85:continue
-        seconds=(row.get('duration') or 0)/1000
-        delta=abs(seconds-duration) if duration and seconds else 0
-        if duration and seconds and delta>max(8,duration*.025):continue
-        people=_song_key(performers)
-        same_artist=any(a in people or SequenceMatcher(None,a,people).ratio()>.7 for a in artists)
-        if artists and not same_artist:continue
-        ranked.append(((delta,-similarity),row))
-    return [r for _,r in sorted(ranked,key=lambda pair:pair[0])]
-
-
-def _netease(title, artist, duration):
-    """NetEase Cloud Music public search + LRC; strong for Chinese songs."""
-    h = {"Referer": "https://music.163.com"}
-    r = _get_json("https://music.163.com/api/search/get?" + _up.urlencode(
-        {"s": f"{title} {artist or ''}".strip(), "type": 1, "limit": 8}), h) or {}
-    songs = _rank((r.get("result") or {}).get("songs") or [], title, artist, duration)
-    for song in songs[:3]:
-        l = _get_json(f"https://music.163.com/api/song/lyric?id={song['id']}&lv=1", h) or {}
-        lrc = (l.get("lrc") or {}).get("lyric")
-        if lrc and _LRC.search(lrc) and len([l for l in _parse_lrc(lrc) if l[1] and not _NOTICE.search(l[1])]) >= 3:
-            names = "/".join(a["name"] for a in song.get("artists", []))
-            return {"synced": _parse_lrc(lrc), "source": f"{names} — {song['name']} (NetEase)"}
-    return None
-
-
-_NOTICE = _re.compile(r"未经|未經|许可|許可|版权|版權|翻唱翻录|翻唱翻錄|音乐人|音樂人|QQ音乐|酷狗|网易云|網易雲|lrc by|歌词贡献", _re.I)
-
-
-def _junk(line, title):
-    t, text = line[0], line[1]
-    if _NOTICE.search(text):
-        return True
-    # "歌名-歌手" / "歌手 - 歌名" header near the start
-    head = t < 30 and ("-" in text or "－" in text)
-    return head and len(set(_NOISE.sub("", title)) & set(text)) >= max(1, len(set(title)) // 2)
-
-
-LYRIC_SOURCES = ("lrclib",)  # default: only the open LRCLIB API; KuGou/NetEase are opt-in
-
-
-def fetch_lyrics(title, artist, album, duration, sources=LYRIC_SOURCES):
-    sources = set(sources or ())
-    ly = _fetch_lrclib(title, artist, album, duration) if "lrclib" in sources else None
-    if not ly or not ly.get("synced"):
-        # untimed lyrics can't follow the song: look for a synced version first
-        clean = " ".join(_NOISE.sub(" ", title.replace("《", " ").replace("》", " ")).split())
-        ly = (("kugou" in sources and _kugou(clean, artist, duration))
-              or ("netease" in sources and _netease(clean, artist, duration)) or ly)
-    if ly and ly.get("synced"):
-        ly["synced"] = [l for l in ly["synced"]
-                        if not _CREDIT.match(l[1]) and not _junk(l, title)]
-    return ly
-
-
-def _title_queries(title):
-    import unicodedata
-    text=unicodedata.normalize("NFKC",title or "")
-    clean=" ".join(_NOISE.sub(" ",text).split())
-    no_year=_re.sub(r"\s+(?:19|20)\d{2}\s*$","",clean)
-    variants=[clean,no_year]
-    variants += [p.strip() for p in _re.split(r"[~〜～/|]",no_year) if len(p.strip())>2]
-    variants += [_re.sub(r"[~〜～/|]"," ",no_year)]
-    return list(dict.fromkeys(v.strip() for v in variants if v.strip()))[:5]
-
-
-def _fetch_lrclib(title, artist, album, duration):
-    import unicodedata
-    from difflib import SequenceMatcher
-    def normalized(value):return "".join(c for c in unicodedata.normalize("NFKC",value or "").casefold() if c.isalnum())
-    def convert(hit):
-        source=f"{hit.get('artistName','')} — {hit.get('trackName','')}"
-        if hit.get("syncedLyrics"):
-            return {"synced":_parse_lrc(hit["syncedLyrics"]),"source":source}
-        if hit.get("plainLyrics"):return {"plain":hit["plainLyrics"].splitlines(),"source":source}
-    params={"track_name":title,"artist_name":artist}
-    if duration:params["duration"]=round(duration)
-    hit=_lrclib("get",params) if title and artist else None
-    if hit and (hit.get("syncedLyrics") or hit.get("plainLyrics")):return convert(hit)
-    target_artist=normalized(artist)
-    candidates={}
-    variants=_title_queries(title)
-    queries=list(dict.fromkeys([f"{v} {artist}".strip() for v in variants]+variants))
-    for query in queries:
-        result=_lrclib("search",{"q":query})
-        if result is None:result=_lrclib("search",{"q":query})
-        for row in result or []:
-            if not isinstance(row,dict):continue
-            if _re.search(r"instrumental|伴奏|カラオケ|off\s*vocal",row.get("trackName", ""),_re.I) and not _re.search(r"instrumental|伴奏|カラオケ|off\s*vocal",title,_re.I):continue
-            name=normalized(row.get("trackName"));performer=normalized(row.get("artistName"))
-            title_score=max((SequenceMatcher(None,normalized(v),name).ratio() for v in variants),default=0)
-            artist_score=SequenceMatcher(None,target_artist,performer).ratio() if target_artist else 1
-            if target_artist and artist_score<.55:continue
-            if title_score<.45:continue
-            delta=abs((row.get("duration") or duration or 0)-(duration or row.get("duration") or 0))
-            if duration and delta>max(12,duration*.04):continue
-            if not (row.get("syncedLyrics") or row.get("plainLyrics")):continue
-            candidates[row.get("id",(name,performer))]=(row,(delta, -artist_score,-title_score))
-        if any(r.get("syncedLyrics") for r,_ in candidates.values()):break
-    if not candidates:return None
-    ranked=sorted(candidates.values(),key=lambda pair:(not bool(pair[0].get("syncedLyrics")),pair[1]))
-    return convert(ranked[0][0])
 
 
 def _linux():
@@ -439,9 +268,13 @@ class Module(BaseModule):
             self.err = "請安裝 nowplaying-cli（brew install nowplaying-cli）"
 
     def poll(self):
-        if self.spec.get('apple_music_native'):
+        from .apple_bridge import bridge
+        browser = bridge.snapshot()
+        if browser and browser.get('playing'):
             return self._apple_poll()
         if self.err:
+            if browser:
+                return self._apple_poll()
             return {"_status": "offline", "message": self.err}
         if sys.platform == "win32":
             np = self.win()
@@ -449,33 +282,33 @@ class Module(BaseModule):
             np = _mac()
         else:
             np = _linux()
+        if browser and (not np or not np.get('playing') or np.get('title') == browser.get('title')):
+            return self._apple_poll()
         if not np or not np.get("title"):
             return {"_status": "idle", "message": "目前沒有播放"}
-        key = f"{np.get('title')}|{np.get('artist')}"
+        key = (np.get('source'), np.get('session_id'), np.get('title'), np.get('artist'), np.get('album'))
         if key != getattr(self, "art_key", None):
-            self.art_key, self.art, self.lyrics, self.lyrics_state = key, None, None, "loading"
+            self.art_key, self.art, self.lyrics = key, None, None
             self.meta, self.first_dur = {}, np.get("duration")
-            self.lyric_attempts, self.lyric_retry_at = 0, 0
             # where the (possibly playlist-wide) clock stood when this track began;
-            # unknown for the track already playing when DeskMon started
+            # unknown for the track already playing when Mondesk started
             self.base = np.get("position") if getattr(self, "seen_change", False) else None
             self.seen_change = True
             threading.Thread(target=self._load_meta, args=(key, dict(np)), daemon=True).start()
-        if self.lyrics_state == "none" and self.lyric_attempts < 3 and time.time() >= self.lyric_retry_at:
-            self.lyrics_state = "loading"
-            threading.Thread(target=self._retry_lyrics,args=(key,dict(np)),daemon=True).start()
         np["duration"] = max(0.0, float(np.get("duration") or 0))
         raw_position = np.get("position",0)
         self._fix_timeline(np)
         np["duration"] = max(0.0, float(np.get("duration") or 0))
         if self.art:
             np["art"] = abs(hash(key)) % 10**9
-        np["lyrics"] = self.lyrics_state
+        np["lyrics"] = "unavailable"
+        np['browser_bridge'] = False
         np["track"] = abs(hash(key)) % 10**9
         np["progress"] = round(np["position"] / np["duration"] * 100) if np.get("duration") else None
         np["_status"] = "ok" if np["playing"] else "idle"
         np["sampled"] = time.time()
         self.last_media = {**np, "_seek_offset": raw_position - np.get("position",0)}
+        self.last_media['browser_bridge'] = False
         return np
 
     def _apple_poll(self):
@@ -494,31 +327,25 @@ class Module(BaseModule):
         elif kept and kept[0] == data['track']:
             lines = kept[1]
         self.lyrics ={'source': 'Apple Music', 'synced': lines} if lines else ({'source': 'Apple Music', 'plain': plain} if plain else None)
-        if not lines:
-            # Apple has no timing for this song: look up synced lyrics elsewhere and time them
-            # with Apple's (accurate) playback position. Apple's own synced lyrics always win.
-            if getattr(self, 'fallback_track', None) != data['track']:
-                self.fallback_track, self.fallback = data['track'], None
-                threading.Thread(target=self._apple_fallback, args=(dict(data),), daemon=True).start()
-            if self.fallback and self.fallback.get('synced'):
-                self.lyrics = self.fallback
         # Include lyric revision so opening the native panel refreshes an already-open view.
         revision = abs(hash(_json.dumps([self.lyrics, data.get('native_diagnostic')], ensure_ascii=False)))
-        data.update(source='Apple Music', lyrics='ok' if self.lyrics else 'native_missing',
+        source = data.get('source') or 'Apple Music'
+        data.update(source=source, browser_bridge=True, lyrics='ok' if self.lyrics else 'native_missing' if source == 'Apple Music' else 'unavailable',
                     lyrics_revision=revision, sampled=time.time(),
                     progress=round(data['position'] / data['duration'] * 100) if data['duration'] else None)
+        remote = data.pop('art_remote', '')
+        self.cover_url = remote
+        if remote and not data.get('art_url'):
+            import zlib
+            data['art_url'] = f"/api/asset/{self.id}/cover?v={zlib.crc32(remote.encode())}"
         data['_status'] = 'ok' if data['playing'] else 'idle'
+        # Chrome keeps running the extension it loaded until "Reload" is pressed on
+        # chrome://extensions, so a Mondesk update alone doesn't reach the browser: say so
+        expected = extension_version()
+        data['ext_expected'] = expected
+        data['ext_outdated'] = bool(expected) and data.get('ext') != expected
         self.last_media = dict(data)
         return data
-
-    def _apple_fallback(self, data):
-        try:
-            ly = fetch_lyrics(data.get('title'), data.get('artist'), data.get('album'), data.get('duration'), self.spec.get('lyrics_sources', LYRIC_SOURCES))
-        except Exception:
-            ly = None
-        if ly and ly.get('synced') and self.fallback_track == data['track']:
-            ly['source'] = (ly.get('source') or '') + '（Apple Music 無同步時間，改用外部歌詞）'
-            self.fallback = ly
 
     def _fix_timeline(self, np):
         """Apple Music web reports a playlist-wide clock: 'position' counts up across tracks
@@ -541,7 +368,7 @@ class Module(BaseModule):
         np["timeline_estimated"] = self.base is None
 
     def _load_meta(self, key, np):
-        # 1) real length (fixes broken timelines, helps pick the right lyrics version)
+        # 1) real length (fixes broken browser timelines)
         try:
             meta = itunes_lookup(np.get("title"), np.get("artist"), np.get("album"))
         except Exception:
@@ -549,18 +376,7 @@ class Module(BaseModule):
         if key != self.art_key:
             return
         self.meta = meta
-        reported = np.get("duration") or 0
-        length = reported if 0 < reported < 1200 else meta.get("length") or reported
-        # 2) lyrics
-        try:
-            ly = fetch_lyrics(np.get("title"), np.get("artist"), np.get("album"), length, self.spec.get("lyrics_sources", LYRIC_SOURCES))
-        except Exception:
-            ly = None
-        if key == self.art_key:
-            self.lyrics, self.lyrics_state = ly, "ok" if ly else "none"
-            self.lyric_attempts += 1
-            self.lyric_retry_at = time.time() + 30
-        # 3) cover: system thumbnail, unless a browser only gave its own icon
+        # 2) cover: system thumbnail, unless a browser only gave its own icon
         try:
             data = _windows_art() if sys.platform == "win32" else _linux_art() if not sys.platform == "darwin" else None
         except Exception:
@@ -571,33 +387,55 @@ class Module(BaseModule):
         if data and key == self.art_key:
             self.art = data
 
-    def _retry_lyrics(self,key,np):
-        try:ly=fetch_lyrics(np.get("title"),np.get("artist"),np.get("album"),np.get("duration") or (self.meta or {}).get("length"),self.spec.get("lyrics_sources",LYRIC_SOURCES))
-        except Exception:ly=None
-        if key == self.art_key:
-            self.lyrics,self.lyrics_state=ly,"ok" if ly else "none"
-            self.lyric_attempts+=1
-            self.lyric_retry_at=time.time()+30
+    def stream_frame(self):
+        """Latest mirrored video frame for /api/stream/<id>; asking marks the video as watched,
+        which tells the browser extension to keep sending frames."""
+        from .apple_bridge import bridge
+        return bridge.watch()
 
     def asset(self, name):
         if name == "lyrics":
             ly = getattr(self, "lyrics", None)
             return (_json.dumps(ly or {}, ensure_ascii=False).encode(), "application/json; charset=utf-8")
+        if name == "cover":
+            # the thumbnail of the video the browser is playing, fetched here (see apple_bridge art_remote)
+            url = getattr(self, "cover_url", "")
+            if not url:
+                return None
+            if getattr(self, "cover_cache", (None,))[0] != url:
+                body = _download(url, limit=4 * 1024 * 1024)
+                self.cover_cache = (url, body if body and _image_type(body) else None)
+            body = self.cover_cache[1]
+            return (body, _image_type(body)) if body else None
         return (self.art, _sniff(self.art)) if getattr(self, "art", None) else None
 
-    def action(self, name, position=None, track=None):
-        if self.spec.get('apple_music_native'):
+    def action(self, name, position=None, track=None, value=None):
+        if name == 'side_screen':
+            # the extension moves the video tab to the side screen, fullscreen (again: back)
+            snapshot = getattr(self, 'last_media', None) or {}
+            if not snapshot.get('browser_bridge'):
+                raise RuntimeError('在影片分頁按 Alt+Shift+D 送到副螢幕')
+            from .apple_bridge import bridge
+            bridge.action('side-screen', track if track is not None else snapshot['track'])
+            return name
+        if (getattr(self, 'last_media', None) or {}).get('browser_bridge'):
             from .apple_bridge import bridge
             from .media_seek import target_seconds
             snapshot = getattr(self, 'last_media', None)
             if not snapshot:
-                raise RuntimeError('Apple Music 尚未連接')
-            if name not in ('seek', 'toggle', 'prev', 'next'):
+                raise RuntimeError('播放器尚未連接')
+            if track is not None and track != snapshot.get('track'):
+                raise RuntimeError('播放來源已變更，請稍後再試')
+            if name == 'volume':
+                # the volume of the video in the tab itself (video page on the panel); the system volume is untouched
+                bridge.action('volume', track if track is not None else snapshot['track'], value=value)
+                return name
+            if name not in ('seek', 'seek_time', 'toggle', 'prev', 'next'):
                 raise ValueError(name)
-            if name != 'seek' and not self.err:
-                # Use the OS media controls (same path as keyboard media keys). Chrome serves
-                # them even when it throttles a paused background Apple Music tab, which made
-                # the extension miss commands after a few minutes of pause.
+            if name not in ('seek', 'seek_time') and not self.err:
+                # OS media controls (same path as keyboard media keys): Chrome serves them even
+                # when it throttles a paused background tab, which made the extension miss
+                # commands after a few minutes of pause. The extension is only the fallback.
                 if sys.platform == 'win32':
                     self.win_act(name)
                 elif sys.platform == 'darwin':
@@ -605,10 +443,10 @@ class Module(BaseModule):
                 else:
                     _run(['playerctl', NIX_ACTIONS[name]])
                 return name
-            if name == 'seek':
+            if name in ('seek', 'seek_time'):
                 position = target_seconds(position, snapshot.get('duration'))
-            bridge.action(name, track if name == 'seek' else snapshot['track'], position)
-            return self._apple_poll() if name == 'seek' else name
+            bridge.action(name, track if track is not None else snapshot['track'], position)
+            return self._apple_poll() if name in ('seek', 'seek_time') else name
         if name == "seek":
             from .media_seek import seek
             snapshot = getattr(self,"last_media",None)

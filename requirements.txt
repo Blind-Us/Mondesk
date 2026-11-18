@@ -3,3 +3,6 @@ imageio-ffmpeg>=0.6
 winrt-runtime; sys_platform == "win32"
 winrt-Windows.Foundation; sys_platform == "win32"
 winrt-Windows.Media.Control; sys_platform == "win32"
+anthropic>=2.6
+pycaw>=20240316; sys_platform == "win32"
+monitorcontrol>=3.1; sys_platform == "win32"

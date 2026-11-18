@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- drawn by tools/make_icons.py -->
+  <rect x="0" y="0" width="256" height="256" rx="58" fill="#1b1b22"/>
+  <rect x="36" y="46" width="184" height="138" rx="32" fill="#f1ead9"/>
+  <rect x="52" y="62" width="152" height="106" rx="20" fill="#1b1b22"/>
+  <rect x="64" y="74" width="50" height="82" rx="12" fill="#e9b66b"/>
+  <rect x="124" y="74" width="68" height="36" rx="12" fill="#f1ead9"/>
+  <rect x="124" y="120" width="68" height="36" rx="12" fill="#f1ead9" opacity="0.45"/>
+  <rect x="82" y="198" width="92" height="14" rx="7" fill="#f1ead9"/>
+</svg>

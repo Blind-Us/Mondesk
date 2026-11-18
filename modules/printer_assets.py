@@ -56,8 +56,9 @@ def studio_stream():
  if not os.path.isfile(sdp):return None
  try:
   if sys.platform=='win32':
-   out=subprocess.run(['tasklist','/FI','IMAGENAME eq bambu_source.exe','/NH'],capture_output=True,text=True,timeout=5,creationflags=0x08000000).stdout
-   running='bambu_source.exe' in out.lower()
+   # tasklist prints in the system code page (e.g. cp950): compare bytes, never decode as UTF-8
+   out=subprocess.run(['tasklist','/FI','IMAGENAME eq bambu_source.exe','/NH'],capture_output=True,timeout=5,creationflags=0x08000000).stdout
+   running=b'bambu_source.exe' in out.lower()
   else:
    running=subprocess.run(['pgrep','-f','bambu_source'],capture_output=True,timeout=5).returncode==0
  except Exception:running=False
@@ -105,53 +106,38 @@ class Camera:
    if time.time()<self.retry_after:return
    self.error='正在連接攝影機…';self.frame=None
    self.worker=threading.Thread(target=self.run,args=(report,),daemon=True);self.worker.start()
+ def sources(self,report):
+  """Ways to reach the camera, best first: [(name, ffmpeg input args, rtp port or None)].
+  'lan'    = straight to the printer (rtsps on port 322; needs LAN Only Liveview on the printer).
+  'studio' = through Bambu Studio's camera tool when it is running (works in cloud mode too).
+  camera_source in the printer settings picks one ('lan' / 'studio'); 'auto' tries both."""
+  want=self.spec.get('camera_source','auto');out=[]
+  studio=studio_stream() if want!='lan' else None
+  if studio:out.append(('studio',['-use_wallclock_as_timestamps','1','-f','h264','-i','pipe:0'],studio_port(studio)))
+  raw=(report.get('ipcam') or {}).get('rtsp_url','')
+  if want!='studio' and raw!='disable' and self.spec.get('ip') and self.spec.get('access_code'):
+   ip=self.spec['ip'];code=quote(self.spec['access_code'],safe='')
+   # the printer's certificate is self-signed: newer ffmpeg builds refuse it unless verification is off
+   out.append(('lan',['-tls_verify','0','-rtsp_transport','tcp','-timeout','8000000','-i',f'rtsps://bblp:{code}@{ip}:322/streaming/live/1'],None))
+  return out
  def run(self,report):
   errors=None
   try:
    from imageio_ffmpeg import get_ffmpeg_exe
-   errors=tempfile.TemporaryFile()
-   studio=studio_stream()
-   rtp_port=None
-   if studio and self.spec.get('camera_source','auto')!='lan':
-    # Bambu Studio's camera tool (bambu_source + ffmpeg) relays the camera to local RTP
-    # through Bambu's own channel: works in cloud mode, no LAN Liveview needed. Its RTP
-    # gives every frame the same timestamp, which makes ffmpeg's RTP reader merge frames,
-    # so we unpack the RTP ourselves and feed raw H.264 (timed by arrival) to ffmpeg.
-    rtp_port=studio_port(studio)
-    source=['-use_wallclock_as_timestamps','1','-f','h264','-i','pipe:0'];vf='fps=10,scale=960:-2'
-   else:
-    vf='fps=4,scale=960:-2'
-    raw=(report.get('ipcam') or {}).get('rtsp_url','')
-    if raw=='disable':self.error='請在印表機設定開啟 LAN Only Liveview，或在 Bambu Studio 開啟攝影機直播工具';return
-    ip=self.spec['ip'];code=quote(self.spec['access_code'],safe='')
-    source=['-rtsp_transport','tcp','-timeout','8000000','-i',f'rtsps://bblp:{code}@{ip}:322/streaming/live/1']
-   self.process=subprocess.Popen([get_ffmpeg_exe(),'-loglevel','error',*source,'-an','-vf',vf,'-f','image2pipe','-vcodec','mjpeg','-q:v','5','-flush_packets','1','pipe:1'],stdin=subprocess.PIPE if rtp_port else None,stdout=subprocess.PIPE,stderr=errors,bufsize=0,creationflags=0x08000000 if __import__('sys').platform=='win32' else 0)
-   if rtp_port:threading.Thread(target=rtp_to_h264,args=(rtp_port,self.process),daemon=True).start()
-   # read() below blocks while ffmpeg has no output; this watchdog ends ffmpeg once nobody
-   # is watching (or nothing arrives), so a silent stream can't hold the port forever.
-   proc=self.process
-   def watchdog():
-    while proc.poll() is None:
-     idle=time.time()-self.last_request>20
-     silent=time.time()-max(self.sampled,started)>45
-     if idle or silent:
-      proc.kill();return
-     time.sleep(1)
-   started=time.time()
-   threading.Thread(target=watchdog,daemon=True).start()
-   buf=b''
-   while time.time()-self.last_request<20:
-    chunk=self.process.stdout.read(4096)
-    if not chunk:break
-    buf+=chunk
-    while b'\xff\xd9' in buf:
-     end=buf.index(b'\xff\xd9')+2;part,buf=buf[:end],buf[end:];start=part.find(b'\xff\xd8')
-     if start>=0:self.frame=part[start:];self.sampled=time.time();self.error=''
-    if len(buf)>8*1024*1024:buf=b''
+   ways=self.sources(report)
+   if not ways:
+    self.error='請在印表機設定開啟 LAN Only Liveview，或在 Bambu Studio 開啟攝影機直播工具';return
+   detail='';self.tried=[]
+   for name,source,rtp_port in ways:   # the next way is tried only when this one gave no picture at all
+    self.tried.append(name)
+    errors=tempfile.TemporaryFile()
+    self.watch(get_ffmpeg_exe(),source,rtp_port,errors)
+    if self.frame:self.source=name;break
+    self.stop();errors.seek(0);detail+=errors.read(32000).decode('utf-8','replace').lower();errors.close();errors=None
+    if time.time()-self.last_request>=20:break   # nobody is watching any more
    if not self.frame:
-    self.stop();errors.seek(0);detail=errors.read(32000).decode('utf-8','replace').lower()
     if '401' in detail or 'unauthorized' in detail:self.error='攝影機拒絕登入，請確認 LAN 存取碼與直播權限'
-    elif 'tls' in detail:self.error='攝影機 TLS 連線中斷，未收到影像；請確認印表機已開啟 LAN Only Liveview'
+    elif 'tls' in detail or 'certificate' in detail:self.error='攝影機 TLS 連線中斷，未收到影像；請確認印表機已開啟 LAN Only Liveview'
     else:self.error='攝影機未提供影像串流：請在 Bambu Studio 開啟攝影機直播工具，或在印表機開啟 LAN Only Liveview'
   except ImportError:self.error='缺少直播解碼套件 imageio-ffmpeg，請更新專案依賴套件'
   except Exception:self.error='攝影機暫時無法連線'
@@ -159,6 +145,31 @@ class Camera:
    self.stop()
    if errors:errors.close()
    if self.error:self.retry_after=time.time()+15
+ def watch(self,ffmpeg,source,rtp_port,errors):
+  """Run ffmpeg on one source and keep self.frame fresh until nobody watches or the stream ends."""
+  vf='fps=24,scale=960:-2'
+  self.process=subprocess.Popen([ffmpeg,'-loglevel','error',*source,'-an','-vf',vf,'-f','image2pipe','-vcodec','mjpeg','-q:v','5','-flush_packets','1','pipe:1'],stdin=subprocess.PIPE if rtp_port else None,stdout=subprocess.PIPE,stderr=errors,bufsize=0,creationflags=0x08000000 if __import__('sys').platform=='win32' else 0)
+  if rtp_port:threading.Thread(target=rtp_to_h264,args=(rtp_port,self.process),daemon=True).start()
+  # read() below blocks while ffmpeg has no output; this watchdog ends ffmpeg once nobody is watching,
+  # when no first picture arrives in 12 s (so the next way gets its turn), or a running stream goes silent.
+  proc=self.process;started=time.time()
+  def watchdog():
+   while proc.poll() is None:
+    idle=time.time()-self.last_request>20
+    silent=time.time()-max(self.sampled,started)>(45 if self.sampled>started else 12)
+    if idle or silent:
+     proc.kill();return
+    time.sleep(1)
+  threading.Thread(target=watchdog,daemon=True).start()
+  buf=b''
+  while time.time()-self.last_request<20:
+   chunk=proc.stdout.read(4096)
+   if not chunk:break
+   buf+=chunk
+   while b'\xff\xd9' in buf:
+    end=buf.index(b'\xff\xd9')+2;part,buf=buf[:end],buf[end:];start=part.find(b'\xff\xd8')
+    if start>=0:self.frame=part[start:];self.sampled=time.time();self.error=''
+   if len(buf)>8*1024*1024:buf=b''
  def stop(self):
   p=self.process
   if p and p.poll() is None:

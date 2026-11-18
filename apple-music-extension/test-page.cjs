@@ -2,7 +2,7 @@ const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
-function run(musicKit) {
+function run(musicKit, change) {
   const messages = [];
   let tick;
   function XHR() {}
@@ -15,14 +15,45 @@ function run(musicKit) {
   context.window = context;
   vm.runInNewContext(fs.readFileSync(__dirname + '/page.js', 'utf8'), context);
   tick();
-  return messages[0].payload;
+  if (change) {change(); tick();}
+  return messages.at(-1).payload;
 }
 const player = () => ({nowPlayingItem: {id: '123', attributes: {name: 'Song', artistName: 'Artist', durationInMillis: 200000}},
   currentPlaybackTime: 10, currentPlaybackDuration: 200, isPlaying: true});
+
+test('album queue advance refreshes title and artwork despite stale nowPlayingItem', () => {
+  const p = player();
+  const next = {id: '456', attributes: {name: 'Next song', albumName: 'Album two', artwork: {url: 'https://is1-ssl.mzstatic.com/next/{w}.jpg'}}};
+  p.queue = {position: 0, items: [p.nowPlayingItem, next]};
+  const result = run({getInstance: () => p}, () => {p.queue.position = 1;});
+  assert.equal(result.state.track, 'apple:456');
+  assert.equal(result.state.title, 'Next song');
+  assert.equal(result.state.album, 'Album two');
+  assert.equal(result.state.art_url, 'https://is1-ssl.mzstatic.com/next/600.jpg');
+});
+
+test('playlist queue item supports flattened MusicKit metadata', () => {
+  const p = player();
+  p.queue = {position: 1, item: i => i === 1 ? {id: 'library:next', playParams: {catalogId: '789'}, title: 'Playlist next', artistName: 'Next artist', artwork: {url: 'https://is1-ssl.mzstatic.com/789.jpg'}} : null};
+  const result = run({getInstance: () => p});
+  assert.equal(result.state.track, 'apple:789');
+  assert.equal(result.state.title, 'Playlist next');
+  assert.equal(result.state.artist, 'Next artist');
+});
 test('modern root playback takes precedence over unrelated .player object', () => {
   const result = run({getInstance: () => ({...player(), player: {}})});
   assert.equal(result.state.track, 'apple:123');
   assert.equal(result.state.position, 10);
+});
+
+test('replacing a queue cannot blank the current song', () => {
+  const p = player(); p.queue = {position: 0, item() {throw Error('replacing');}};
+  assert.equal(run({getInstance: () => p}).state.track, 'apple:123');
+});
+
+test('queue stubs cannot hide refreshed metadata for the same song', () => {
+  const p = player(); p.queue = {position: 0, items: [{id: '123'}]};
+  assert.equal(run({getInstance: () => p}).state.title, 'Song');
 });
 test('older .player playback is supported', () => {
   assert.equal(run({getInstance: () => ({player: player()})}).state.track, 'apple:123');

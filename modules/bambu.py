@@ -4,6 +4,7 @@ Works with Wi-Fi + cloud mode left on; needs printer IP, serial and the LAN
 access code shown on the printer. Requires `pip install paho-mqtt`.
 """
 import json
+import hashlib
 import ssl
 import subprocess
 import threading
@@ -42,6 +43,8 @@ class Module(BaseModule):
         self.camera = Camera(spec)
         self.preview_image = None
         self.preview_key = None
+        self.preview_loaded_key = None
+        self.preview_version = ''
         self.preview_retry = 0
         self.preview_busy = False
         self.objects=[]
@@ -58,7 +61,7 @@ class Module(BaseModule):
 
     def start(self):
         if not (self.spec.get("ip") and self.spec.get("serial") and self.spec.get("access_code")):
-            self.err = "config.json 尚未填入 ip / serial / access_code"
+            self.err = "尚未填入 IP、序號和 LAN 存取碼（設定頁 → 列印機）"
             return
         try:
             import paho.mqtt.client as mqtt
@@ -166,9 +169,57 @@ class Module(BaseModule):
             c.disconnect()
             c.loop_stop()
 
+    @staticmethod
+    def _focus_studio():
+        """Bring an already-running Bambu Studio to the front. True if one was found."""
+        import shutil, sys
+        if sys.platform != "win32":
+            # X11/XWayland: wmctrl can activate a window by its class
+            return bool(shutil.which("wmctrl")) and subprocess.run(
+                ["wmctrl", "-x", "-a", "bambu-studio"], capture_output=True).returncode == 0
+        import ctypes
+        from ctypes import wintypes
+        user32, kernel32 = ctypes.windll.user32, ctypes.windll.kernel32
+        # system code page output (e.g. cp950): the fields we need are ASCII, ignore the rest
+        out = subprocess.run(["tasklist", "/FI", "IMAGENAME eq bambu-studio.exe", "/FO", "CSV", "/NH"],
+                             capture_output=True, creationflags=0x08000000).stdout.decode("ascii", "ignore")
+        pids = {int(line.split('","')[1]) for line in out.splitlines() if line.lower().startswith('"bambu-studio.exe"')}
+        if not pids:
+            return False
+        found = []
+
+        @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+        def each(hwnd, _):
+            pid = wintypes.DWORD()
+            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+            # its main window: visible, top-level (no owner) and has a title
+            n = user32.GetWindowTextLengthW(hwnd)
+            if pid.value in pids and user32.IsWindowVisible(hwnd) and not user32.GetWindow(hwnd, 4) and n:
+                title = ctypes.create_unicode_buffer(n + 1)
+                user32.GetWindowTextW(hwnd, title, n + 1)
+                found.append((hwnd, title.value))
+            return True
+        user32.EnumWindows(each, 0)
+        if not found:
+            return True  # running but still starting up / no window yet: don't launch another
+        # several windows: prefer one with a project open over an empty "未命名 / Untitled" one
+        hwnd = min(found, key=lambda w: w[1].startswith(("未命名", "Untitled")))[0]
+        if user32.IsIconic(hwnd):
+            user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+        # Windows only lets the foreground app hand over focus; borrow it by attaching input
+        fg = user32.GetWindowThreadProcessId(user32.GetForegroundWindow(), None)
+        me = kernel32.GetCurrentThreadId()
+        user32.AttachThreadInput(me, fg, True)
+        user32.BringWindowToTop(hwnd)
+        user32.SetForegroundWindow(hwnd)
+        user32.AttachThreadInput(me, fg, False)
+        return True
+
     def _open_studio(self):
-        """Launch Bambu Studio on this computer. Never talks to the printer."""
+        """Focus Bambu Studio if it is running, otherwise launch it. Never talks to the printer."""
         import os, shutil, sys
+        if self._focus_studio():
+            return {"opened": True, "focused": True}
         custom = self.spec.get("studio_path")
         # Only ever launch Bambu Studio itself: a changed config must not run other programs.
         if custom and (os.path.basename(custom).lower() not in ("bambu-studio.exe", "bambu-studio", "bambustudio.exe")
@@ -250,7 +301,11 @@ class Module(BaseModule):
             def received(objects,enabled):
                 if key==self.preview_key:self.objects=objects;self.skip_enabled=enabled
             image=preview(self.spec,report,received)
-            if key == self.preview_key:self.preview_image=image
+            if image and key == self.preview_key:
+                with self.lock:
+                    self.preview_image = image
+                    self.preview_loaded_key = key
+                    self.preview_version = hashlib.sha256(image).hexdigest()[:20]
         except Exception:pass
         finally:self.preview_busy=False
 
@@ -284,10 +339,13 @@ class Module(BaseModule):
                 message = self.last_command_error['message']
             return {"_status": "offline", "message": message, **diagnostics}
         key=(r.get("subtask_name"),r.get("gcode_file"),r.get("task_id"))
-        if key!=self.preview_key:self.preview_key=key;self.preview_image=None;self.preview_retry=0;self.objects=[];self.skip_enabled=False
-        if key[0] and not self.preview_image and not self.preview_busy and time.time()>self.preview_retry:
+        if self.preview_key and (not key[0] or key[0] == self.preview_key[0]):
+            key = tuple(value if value not in (None, '') else old for value, old in zip(key, self.preview_key))
+        if key!=self.preview_key:self.preview_key=key;self.preview_retry=0;self.objects=[];self.skip_enabled=False
+        if key[0] and self.preview_loaded_key != key and not self.preview_busy and time.time()>self.preview_retry:
             self.preview_busy=True;self.preview_retry=time.time()+60
-            threading.Thread(target=self._preview,args=(key,r),daemon=True).start()
+            preview_report = {**r, 'subtask_name': key[0], 'gcode_file': key[1], 'task_id': key[2]}
+            threading.Thread(target=self._preview,args=(key,preview_report),daemon=True).start()
         stage = r.get("gcode_state", "IDLE")
         remain = r.get("mc_remaining_time")  # minutes
         ams = []
@@ -305,7 +363,9 @@ class Module(BaseModule):
             "hms": r.get('hms') or [],
             "skip_enabled":self.skip_enabled,
             "preview": bool(self.preview_image),
-            "preview_version":str(abs(hash(self.preview_key))),
+            "preview_version": self.preview_version,
+            "job_version": str(abs(hash(self.preview_key))),
+            "preview_pending": self.preview_loaded_key != self.preview_key,
             "model": self.spec.get("model", ""),
             "stage": stage,
             "stage_label": STAGES.get(stage, stage),

@@ -3,6 +3,8 @@ config.json
 apple-music-extension/config.js
 .apple-music-key
 .claude-usage.json
+server-runtime*.log
+companion-bench.csv
 
 # Python / local environments
 __pycache__/
@@ -15,3 +17,12 @@ venv/
 .idea/
 .DS_Store
 Thumbs.db
+dist/
+browser-extension/
+
+# application build (tools/build_app.py)
+build/
+*.spec
+
+# personal notes (name, student ID): kept local
+期末專案發想/

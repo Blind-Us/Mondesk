@@ -1,4 +1,4 @@
-/* Adds the X-DeskMon header to every write request to DeskMon's own API.
+/* Adds the X-DeskMon header to every write request to Mondesk's own API.
    The server rejects writes without it, which blocks other websites (they can't add a
    custom header to a request to 127.0.0.1 without a CORS preflight the server never allows). */
 (() => {

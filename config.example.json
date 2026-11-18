@@ -2,7 +2,10 @@
   "host": "127.0.0.1",
   "port": 9361,
   "display": {
-    "text_scale": 1
+    "text_scale": 1,
+    "mode": "",
+    "auto_mode": false,
+    "toasts": true
   },
   "modules": [
     {
@@ -20,7 +23,6 @@
       "id": "music",
       "type": "media",
       "title": "Now Playing",
-      "lyrics_sources": ["lrclib"],
       "apple_music_native": false
     },
     {
@@ -37,6 +39,85 @@
       "official_usage": false,
       "budget_5h": null,
       "budget_week": null
+    },
+    {
+      "id": "system",
+      "type": "system",
+      "title": "系統",
+      "enabled": false
+    },
+    {
+      "id": "companion",
+      "type": "companion",
+      "title": "Companion",
+      "enabled": false,
+      "provider": "anthropic",
+      "model": "claude-opus-5-5",
+      "small_model": "",
+      "effort": "low",
+      "api_key": "",
+      "fallbacks": true,
+      "ollama_url": "http://127.0.0.1:11434",
+      "ollama_model": "qwen3:8b",
+      "triggers": [
+        "print_finished",
+        "print_failed",
+        "quota_high",
+        "song_change",
+        "long_work",
+        "timer_done",
+        "rain_soon"
+      ],
+      "quota_threshold": 80,
+      "work_minutes": 120,
+      "break_minutes": 10,
+      "song_chance": 0.4,
+      "max_calls_per_hour": 20,
+      "character": "emoji",
+      "triggers_v": 2
+    },
+    {
+      "id": "clock",
+      "type": "clock",
+      "title": "時鐘",
+      "enabled": false,
+      "style": "digital",
+      "hour12": false,
+      "seconds": true,
+      "date": true,
+      "color": "",
+      "timer": false
+    },
+    {
+      "id": "weather",
+      "type": "weather",
+      "title": "天氣",
+      "enabled": false,
+      "place": "",
+      "latitude": null,
+      "longitude": null
     }
-  ]
+  ],
+  "theme": {
+    "background": "graphite",
+    "shape": "round",
+    "accent": "#f2a541",
+    "cards": {
+      "media": "#7ee0b5",
+      "codex": [
+        "#4f7dff",
+        "#c46bff"
+      ]
+    },
+    "modes": {
+      "focus": "#7cc4ff"
+    },
+    "night": {
+      "on": false,
+      "from": 22,
+      "to": 7,
+      "background": "oled"
+    },
+    "cover": ""
+  }
 }

@@ -1,5 +1,11 @@
 <!doctype html>
-<html lang="zh-Hant"><meta charset="utf-8"><title>Apple Music 連線狀態</title>
-<body><h3>DeskMon · Apple Music</h3><p id="status" role="status">正在讀取連線狀態…</p>
-<p>更新擴充功能後，請先在擴充功能管理頁按「重新載入」，再重新整理 Apple Music 分頁。</p>
+<html lang="zh-Hant"><meta charset="utf-8"><title>Now Playing 連線狀態</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;width:360px;padding:24px;background:#141419;color:#f1ead9;font:14px/1.6 system-ui,"Microsoft JhengHei",sans-serif}h3{font-size:18px;letter-spacing:-.4px;margin:0 0 24px;display:flex;align-items:center;gap:12px}h3 img{width:40px;height:40px}h3 small{display:block;color:#a8a294;font-size:11px;letter-spacing:2px;font-weight:500}.player{background:#1b1b22;border:1px solid #33333d;border-radius:24px;padding:18px;margin-bottom:20px}#title{font-size:22px;line-height:1.4;margin:6px 0;overflow-wrap:anywhere}#source{font-size:12px;color:#e9b66b}#artist,p{color:#b8b4aa}#status{border-top:1px solid #33333d;padding-top:14px;margin-top:16px;font-size:13px;overflow-wrap:anywhere}button{width:100%;min-height:46px;border:0;border-radius:999px;background:#e9b66b;color:#1b1b22;font:650 14px system-ui;cursor:pointer}button:hover{background:#f3c98a}button:disabled{opacity:.6;cursor:wait}button+button{margin-top:10px}button.ghost{background:#1b1b22;color:#f1ead9;border:1px solid #33333d}button:focus-visible{outline:3px solid #fff;outline-offset:4px}body>p{font-size:12px}footer{color:#a8a294;font-size:12px;border-top:1px solid #33333d;padding-top:12px;display:flex;justify-content:space-between}
+</style>
+<body><h3><img src="icons/icon128.png" alt=""><span>Mondesk<small>NOW PLAYING</small></span></h3><section class="player" aria-label="目前播放"><div id="source">等待連線</div><h1 id="title">等待播放</h1><div id="artist">開啟音樂或影片後自動同步</div><p id="status" role="status" aria-live="polite">正在讀取連線狀態…</p></section>
+<button id="side" type="button">送到副螢幕全螢幕（Alt+Shift+D）</button>
+<button id="connect" type="button" class="ghost">連接目前影片分頁</button>
+<p>Apple Music／YouTube 會自動連接；其他網站可按上方按鈕授權目前分頁。本次連接不會取得所有網站權限。</p>
+<footer><span>本機同步 · 僅連接目前分頁</span><span id="version"></span></footer>
 <script src="status.js"></script></body></html>

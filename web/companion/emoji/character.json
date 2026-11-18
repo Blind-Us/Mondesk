@@ -1,0 +1,15 @@
+{
+  "format": "deskmon-character/1",
+  "id": "emoji",
+  "name": "Emoji",
+  "author": "DeskMon",
+  "description": "超大表情符號，不需要任何圖片。說話時會彈跳。",
+  "faces": {
+    "neutral": "🙂",
+    "happy": "😄",
+    "thinking": "🤔",
+    "worried": "😟",
+    "surprised": "😮",
+    "sleepy": "😪"
+  }
+}

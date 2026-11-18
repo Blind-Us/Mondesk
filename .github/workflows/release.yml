@@ -1,0 +1,56 @@
+# Builds the Mondesk application for Windows and Linux.
+#   * push a tag like v1.0.0  -> both packages are attached to a GitHub Release of that tag
+#   * "Run workflow" by hand  -> the packages are kept as artifacts of the run (for trying them out)
+# Each package is started once on the build machine (tools/build_app.py self-test) before it is published.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install
+        run: python -m pip install -r requirements-desktop.txt -r requirements-build.txt
+      - name: Check
+        run: python tools/check.py
+      - name: Build
+        run: python tools/build_app.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Mondesk-${{ runner.os }}
+          path: |
+            dist/Mondesk-windows.zip
+            dist/Mondesk-linux.tar.gz
+          if-no-files-found: error
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: packages
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: packages/*
+          generate_release_notes: true

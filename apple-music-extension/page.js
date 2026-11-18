@@ -1,15 +1,30 @@
 // Observe only lyric responses already requested by Apple Music. Never forward tokens.
 (() => {
   const lyrics = new Map();
+  const lyricText = new Map();
+  let lyricRevision = 0;
   const lyricRequests = new Map();
   let lyricDiagnostic = '';
   let acks = [], running = false;
+  let deliveredLyrics = null;
   const kit = () => {
     const k = window.MusicKit?.getInstance();
     // Modern MusicKit exposes playback directly; older builds use .player.
     return [k, k?.player].find(p => p?.nowPlayingItem && Number.isFinite(Number(p.currentPlaybackTime))) || k?.player || k;
   };
-  const itemID = item => String(item?.attributes?.playParams?.catalogId || item?.attributes?.playParams?.id || item?.id || '');
+  const itemID = item => String(item?.attributes?.playParams?.catalogId || item?.playParams?.catalogId || item?.attributes?.playParams?.id || item?.playParams?.id || item?.id || '');
+  function playingItem(player) {
+    const queue = player?.queue;
+    // Album/playlist playback can advance the queue before nowPlayingItem refreshes.
+    const index = queue?.position;
+    let queued = null;
+    if (Number.isInteger(index) && index >= 0) {
+      try {queued = typeof queue.item === 'function' ? queue.item(index) : queue.items?.[index];}
+      catch (_) { /* During queue replacement, use nowPlayingItem until it settles. */ }
+    }
+    if (itemID(queued) && itemID(queued) === itemID(player?.nowPlayingItem)) return player.nowPlayingItem;
+    return itemID(queued) ? queued : player?.nowPlayingItem;
+  }
   function seconds(value) {
     if (!value) return null;
     value = value.trim();
@@ -47,11 +62,15 @@
       let text = body;
       if (!String(body).trim().startsWith('<')) {
         const json = typeof body === 'string' ? JSON.parse(body) : body;
-        const findTTML = value => {
+        const visited = new WeakSet();
+        let remaining = 500;
+        const findTTML = (value, depth = 0) => {
           if (!value || typeof value !== 'object') return null;
+          if (depth > 12 || remaining-- <= 0 || visited.has(value)) return null;
+          visited.add(value);
           if (typeof value.attributes?.ttml === 'string') return value.attributes.ttml;
           for (const child of Object.values(value)) {
-            const found = findTTML(child);
+            const found = findTTML(child, depth + 1);
             if (found) return found;
           }
           return null;
@@ -62,15 +81,21 @@
         text = song ? findTTML(song) : /\/(?:syllable-lyrics|lyrics)(?:[/?]|$)/.test(String(url)) ? findTTML(json) : null;
       }
       if (typeof text !== 'string' || !text.includes('<tt')) return;
-      lyrics.set(decodeURIComponent(match[1]), parse(text));
-      if (lyrics.size > 12) lyrics.delete(lyrics.keys().next().value);
+      const id = decodeURIComponent(match[1]);
+      if (lyricText.get(id) === text) return;
+      const parsed = parse(text);
+      // Different native endpoints can return static and timed versions out of order.
+      if (lyrics.get(id)?.lines?.length && !parsed.lines.length) return;
+      lyricText.set(id, text);
+      lyrics.set(id, {...parsed, lyrics_revision: ++lyricRevision});
+      if (lyrics.size > 12) {const oldest = lyrics.keys().next().value; lyrics.delete(oldest); lyricText.delete(oldest);}
     } catch (_) { /* An unsupported response is never assigned fabricated timing. */ }
   }
   const originalFetch = window.fetch;
   window.fetch = function (...args) {
     const result = originalFetch.apply(this, args);
     const url = args[0]?.url || String(args[0]);
-    if (/\/songs\/[^/?]+(?:[/?]|$)/.test(url)) {
+    if (/\/songs\/[^/?]+(?:[/?]|$)/.test(url) && /lyrics/.test(url)) {
       result.then(r => r.clone().text()).then(body => capture(url, body)).catch(() => {});
     }
     return result;
@@ -80,27 +105,29 @@
   XMLHttpRequest.prototype.open = function (method, url, ...rest) { urls.set(this, String(url)); return open.call(this, method, url, ...rest); };
   XMLHttpRequest.prototype.send = function (...args) {
     const url = urls.get(this) || '';
-    if (/\/songs\/[^/?]+(?:[/?]|$)/.test(url)) this.addEventListener('load', () => {
+    if (/\/songs\/[^/?]+(?:[/?]|$)/.test(url) && /lyrics/.test(url)) this.addEventListener('load', () => {
       try { capture(url, this.responseType === 'json' ? this.response : this.responseText); } catch (_) {}
     }, {once: true});
     return send.apply(this, args);
   };
   function snapshot() {
-    const player = kit(), item = player?.nowPlayingItem, id = itemID(item);
+    const player = kit(), item = playingItem(player), id = itemID(item);
     if (!id) return null;
     const attr = item.attributes || item;
     const artwork = attr.artwork?.url || item.artwork?.url || '';
     const artURL = artwork.replaceAll('{w}', '600').replaceAll('{h}', '600').replaceAll('{f}', 'jpg').replaceAll('{c}', 'bb');
     const position = Number(player.currentPlaybackTime), duration = Number(player.currentPlaybackDuration || attr.durationInMillis / 1000);
     if (!Number.isFinite(position) || !Number.isFinite(duration)) return null;
-    return {track: 'apple:' + id, title: attr.name || item.title || '', artist: attr.artistName || '', album: attr.albumName || '', art_url: artURL,
+    return {track: 'apple:' + id, title: attr.name || item.title || item.name || '', artist: attr.artistName || item.artistName || '', album: attr.albumName || item.albumName || '', art_url: artURL,
       position: Math.max(0, position), duration: Math.max(0, duration), playing: !!player.isPlaying,
-      ...(lyrics.get(id) || {lines: [], plain: []})};
+      source: 'Apple Music', video: item.type === 'music-videos' || attr.playParams?.kind === 'music-video',
+      ...(lyrics.get(id) || {lines: [], plain: [], lyrics_revision: 0})};
   }
   async function requestLyrics(state) {
     const id = state.track.slice(6);
-    if (lyrics.has(id) || Date.now() - (lyricRequests.get(id) || 0) < 20000) return;
+    if (lyrics.get(id)?.lines?.length || Date.now() - (lyricRequests.get(id) || 0) < 60000) return;
     lyricRequests.set(id, Date.now());
+    if (lyricRequests.size > 12) lyricRequests.delete(lyricRequests.keys().next().value);
     try {
       const instance = window.MusicKit?.getInstance();
       if (typeof instance?.api?.music !== 'function') {
@@ -110,13 +137,13 @@
       const region = [instance.storefrontId, location.pathname?.split('/')[1]].find(value => typeof value === 'string' && /^[a-z]{2}$/i.test(value));
       if (!region) { lyricDiagnostic = '尚未讀到 Apple Music 商店地區'; return; }
       // Requests stay inside the signed-in Apple page via its own API client.
-      // No credentials are copied or sent to DeskMon.
+      // No credentials are copied or sent to Mondesk.
       for (const kind of ['syllable-lyrics', 'lyrics']) {
         const path = `/v1/catalog/${region.toLowerCase()}/songs/${encodeURIComponent(id)}/${kind}`;
         try {
           const response = await instance.api.music(path);
           capture(path, response);
-          if (lyrics.has(id)) { lyricDiagnostic = ''; return; }
+          if (lyrics.get(id)?.lines?.length) { lyricDiagnostic = ''; return; }
           lyricDiagnostic = 'Apple Music 回應尚未包含可辨識的 TTML 歌詞';
         } catch (error) {
           const code = Number(error?.status || error?.response?.status || error?.errors?.[0]?.status);
@@ -128,15 +155,20 @@
   window.addEventListener('message', async event => {
     if (event.source !== window || event.origin !== location.origin || event.data?.type !== 'deskmon-apple-commands' || running) return;
     const acknowledged = new Set(event.data.acked || []);
+    deliveredLyrics = event.data.lyrics_revision == null ? null : event.data.lyrics_track + ':' + event.data.lyrics_revision;
     acks = acks.filter(ack => !acknowledged.has(ack.id));
     running = true;
     try {
       for (const command of event.data.commands || []) {
-        if (!['seek', 'toggle', 'next', 'prev'].includes(command.action)) continue;
+        if (command.action === 'fullscreen-result') {acks.push({id: command.id, ok: command.ok, error: command.error}); continue;}
+        if (!['seek', 'seek_time', 'toggle', 'next', 'prev'].includes(command.action)) continue;
         try {
           const state = snapshot(), player = kit();
           if (!state || state.track !== command.track) throw new Error('歌曲已變更');
-          if (command.action === 'seek') {
+          if (command.action === 'seek_time') {
+            if (!Number.isFinite(command.position) || command.position < 0 || command.position > state.duration) throw Error('無效的播放時間');
+            await player.seekToTime(command.position);
+          } else if (command.action === 'seek') {
             if (!Number.isFinite(command.position) || !state.lines.some(row => Math.abs(row[0] - command.position) < .01)) throw new Error('缺少原生歌詞時間');
             await player.seekToTime(command.position);
             await player.play();
@@ -148,16 +180,19 @@
       }
     } finally { running = false; }
   });
-  setInterval(() => {
+  const heartbeat = setInterval(() => {
     try {
       const state = snapshot();
       if (state) void requestLyrics(state);
       const found = state && lyrics.get(state.track.slice(6));
-      const diagnostic = '[v0.1.4] ' + (!window.MusicKit ? '頁面未提供 MusicKit 播放器' : !state ? '已找到 MusicKit，尚未讀到歌曲或有效播放時間'
+      const diagnostic = '[v0.2.2] ' + (!window.MusicKit ? '頁面未提供 MusicKit 播放器' : !state ? '已找到 MusicKit，尚未讀到歌曲或有效播放時間'
         : state.lines.length ? '已讀到 Apple Music 同步歌詞' : found?.why || lyricDiagnostic || '已讀到播放資料，等待原生歌詞；請開啟歌詞面板');
-      window.postMessage({type: 'deskmon-apple-state', payload: {state, acks, diagnostic}}, location.origin);
+      const outgoing = state ? {...state} : null;
+      if (outgoing && deliveredLyrics === outgoing.track + ':' + outgoing.lyrics_revision) {delete outgoing.lines; delete outgoing.plain;}
+      window.postMessage({type: 'deskmon-apple-state', payload: {state: outgoing, acks, diagnostic}}, location.origin);
     } catch (error) {
       window.postMessage({type: 'deskmon-apple-state', payload: {state: null, acks, diagnostic: '讀取播放器失敗：' + error.message}}, location.origin);
     }
-  }, 500);
+  }, 1000);
+  window.addEventListener('deskmon-bridge-stop', () => clearInterval(heartbeat), {once: true});
 })();
