@@ -6,78 +6,41 @@
 
 每個禮拜一坐回桌前，旁邊那塊小螢幕幫你盯著其他事。
 
+<p align="center"><img src="docs/images/panel.png" width="720" alt="Mondesk 面板"></p>
+
+## 有哪些卡片
+
+- **3D 列印機**（Bambu Lab）：進度、剩餘時間、模型預覽、機艙直播
+- **正在播放**：Apple Music 同步歌詞；YouTube、B 站影片在小螢幕上同步播放
+- **AI 用量**：Codex／Claude 的 5 小時、7 天額度
+- **Companion**：會看上面這些資料、有表情、主動提醒你的 AI 角色
+- **天氣**、**時鐘**（含計時器、碼錶）、**系統**（音量、螢幕亮度）
+
+卡片的位置和大小都能直接拖曳調整，也能切換「專注／列印／休息」等情境模式。
+
 ## 下載
 
-到 [Releases](../../releases) 下載，解壓縮後點兩下就能用，不用安裝 Python，也不用打任何指令。
+到 [Releases](../../releases) 下載，解壓縮後點兩下就能用，不用安裝 Python。
 
 | 系統 | 檔案 | 開啟 |
 |---|---|---|
-| Windows 10／11 | `Mondesk-windows.zip` | `Mondesk.exe`。想先看看長什麼樣子，點 `Mondesk 示範模式.bat` |
-| Linux | `Mondesk-linux.tar.gz` | `./Mondesk`（面板開在瀏覽器裡）。示範：`./mondesk-demo.sh` |
+| Windows 10／11 | `Mondesk-windows.zip` | `Mondesk.exe` |
+| Linux | `Mondesk-linux.tar.gz` | `./Mondesk`（面板開在瀏覽器裡） |
 
-- 示範模式全部是腳本產生的資料，不需要列印機、帳號或金鑰，也不會存檔。
-- 開機自動啟動、全螢幕：設定頁的「應用程式」。視窗會開在上次關閉時的螢幕、位置和大小。
-- 再點一次 `Mondesk.exe` 不會開第二個，只會把原本的視窗叫到前面。
-- Apple Music 歌詞、YouTube／B 站影片同步需要瀏覽器擴充功能。擴充功能已經包在裡面，設定頁「正在播放」有一步一步的安裝說明（Chrome 不允許程式自動安裝，要手動載入一次）。
-- Windows 第一次開啟可能顯示「Windows 已保護您的電腦」：這個程式沒有購買簽章，按「其他資訊」→「仍要執行」。開著「智慧型應用程式控制」的電腦不允許任何沒有簽章的程式，請改用下面的原始碼版（`Mondesk.bat`，需要先裝 Python）。
-- Linux 版的系統音量卡片和「系統正在播放」需要 Windows；其他功能相同。
+- 開機自動啟動、全螢幕：設定頁的「應用程式」。
+- Apple Music 歌詞與影片同步需要瀏覽器擴充功能，設定頁「正在播放」有安裝說明。
+- Windows 若顯示「Windows 已保護您的電腦」，按「其他資訊」→「仍要執行」（程式沒有購買簽章）。開著「智慧型應用程式控制」的電腦請改用原始碼版。
 
-## 這是什麼
-
-放在桌上小螢幕的監看面板：3D 列印機、正在播放的音樂（含同步歌詞）、Codex／Claude 用量，以及一個會看這些資料、主動跟你說話的 Companion 角色。
-Windows 與 Linux 都可使用，所有設定都在本機網頁完成。
-
-| 卡片 | 內容 |
-|---|---|
-| 3D 列印機（Bambu Lab） | 進度、剩餘時間、溫度、模型預覽、機艙直播、一鍵開啟 Bambu Studio |
-| 正在播放 | 封面、剩餘時間、播放控制；點卡片：Apple Music 顯示全螢幕同步歌詞，YouTube、B 站的影片由面板自己靜音同步播放（原分頁照常播放、可以蓋住），其他網站才擷取分頁畫面 |
-| AI 用量 | 今日 tokens、5 小時／7 天額度 % |
-| Companion | 有臉的 AI 夥伴：列印完成／失敗、額度偏高、換歌、工作太久時用一兩句話提醒你並切換表情；點臉回報目前狀況。角色可換、可匯入別人做的角色包（見 [docs/COMPANION.md](docs/COMPANION.md)、[docs/CHARACTER-FORMAT.md](docs/CHARACTER-FORMAT.md)） |
-| 系統控制 | 音量（含靜音）、支援 DDC/CI 的螢幕亮度，以及小螢幕本身的「面板」調暗 |
-| 天氣 | 氣溫、天氣狀況、今天高低溫與降雨機率、接下來幾小時；快下雨時會提醒（資料來自 Open-Meteo，不用帳號） |
-| 時鐘 | 數字、指針、翻頁、圓環、文字五種樣式，任何大小都看得清楚；點卡片開全螢幕，裡面有計時器和碼錶兩頁，用滾輪設定倒數、開始和重設，時間到螢幕四邊會發光。放上時鐘後，右上角的小時間會隱藏 |
-
-版面可以自己調：碰一下螢幕，點左上角的鉛筆，就能直接拖曳卡片、拖右下角改大小（6×8 格）；按 ✕ 收進「小工具」抽屜，用不到的就不用放。每張卡右上角的小齒輪只開那張卡的設定，左上角齒輪只有螢幕和顏色。預設是左上列印機、右上正在播放、左下 AI 用量（多個訂閱可左右滑動或滾輪切換）、右下 Companion。
-
-**情境模式**：碰一下螢幕，左上角的模式按鈕可在「自訂／專注／列印／休息」之間切換整個版面；也可以設定開始列印時自動切到「列印」。模式開著時按鉛筆，改的是那個模式自己的版面。版面可以匯出成「版面包」分享（只含版面、模式與顏色，不含任何帳號或金鑰），設定頁內建專注、媒體、列印三個範本。
-
-**事件**：列印完成／失敗、額度偏高、快下雨、計時結束、工作太久都只記錄一次。Companion 在畫面上時由角色說；沒有角色時面板下方會跳出提示；設定頁的「事件紀錄」看得到全部。
-
-## 先試試看（不用任何帳號或設備）
-
-```bash
-Mondesk.bat --demo      # Windows；Linux 用 ./mondesk.sh --demo
-```
-
-示範模式用腳本產生列印機、音樂（含歌詞）、AI 額度和天氣的資料，大約四分鐘一輪：列印完成、第二次列印失敗、額度超過 80%、換歌、快下雨。角色、事件紀錄、情境模式、版面編輯都是真的在運作。不會讀寫你的設定。
-
-## 檢查這份程式是否正常
-
-```bash
-.venv\Scripts\python tools\check.py     # Windows；Linux 用 .venv/bin/python tools/check.py
-```
-
-（`.venv` 在第一次執行 `Mondesk.bat`／`./mondesk.sh` 時建立。）會檢查套件、跑完 Python 與 JavaScript 測試（沒裝 Node.js 會略過 JavaScript），再啟動一次示範伺服器確認頁面和 API。不需要帳號、列印機或金鑰。
-
-## 安裝與啟動
+## 從原始碼安裝
 
 需要 Python 3.10 以上。
 
 ```bash
-Mondesk.bat         # Windows（點兩下也可以）
+Mondesk.bat         # Windows
 ./mondesk.sh        # Linux
 ```
 
-只有這兩個啟動檔。第一次啟動會建立虛擬環境、安裝套件，並以 `config.example.json` 建立使用者設定；程式目錄不保存正式使用者設定。面板開在獨立視窗；Linux 沒有可用的網頁視窗元件時改開瀏覽器，加 `--browser` 也一樣。
-
-設定檔：Windows 使用 `%LOCALAPPDATA%/DeskMon/config.json`，Linux 使用 `$XDG_CONFIG_HOME/DeskMon/config.json`（未設定時為 `~/.config/DeskMon/config.json`）。伺服器與 desktop 共用此設定路徑；開發可用 `--config` 明確指定其他檔案。
-
-下載用的應用程式由 `python tools/build_app.py` 產生（需要 `pip install -r requirements-desktop.txt -r requirements-build.txt`），它只能做出執行它的那個系統的版本；推一個 `v` 開頭的標籤，[.github/workflows/release.yml](.github/workflows/release.yml) 會在 GitHub 上把 Windows 和 Linux 兩個版本都做出來並掛到 Releases。圖示由 `python tools/make_icons.py` 畫出。應用程式在使用者設定旁產生 `browser-extension/`，配對網址使用實際桌面服務連接埠。Chrome 從這個資料夾載入「Mondesk — Now Playing」。
-
-- 面板：<http://127.0.0.1:9361>
-- 設定：<http://127.0.0.1:9361/settings.html>（或點面板左上角的齒輪）
-
-Linux 額外需要：`playerctl`（正在播放）、`xrandr`（解析度清單）。
+第一次啟動會自動建立環境、安裝套件。設定存在 `%LOCALAPPDATA%\DeskMon`（Linux：`~/.config/DeskMon`），不在程式資料夾裡。面板也可以用瀏覽器開：<http://127.0.0.1:9361>。
 
 ## 設定與帳號
 

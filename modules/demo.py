@@ -13,10 +13,13 @@ Not listed in config.json: the hub swaps these in for the real modules while in 
 """
 import json
 import time
+from pathlib import Path
 
 from . import BaseModule
 
 PERIOD = 240.0
+# drawn pictures for the demo (assets/demo): the model on the build plate and the album cover
+PICTURES = Path(__file__).resolve().parent.parent / "assets" / "demo"
 STAGE_LABELS = {"IDLE": "待機", "PREPARE": "準備中", "RUNNING": "列印中", "PAUSE": "已暫停",
                 "FINISH": "已完成", "FAILED": "失敗"}
 
@@ -56,7 +59,7 @@ def _printer(stage, file, progress, remain=None, layer=None, nozzle=220, bed=60,
         "nozzle": nozzle, "nozzle_target": 220 if stage in ("RUNNING", "PREPARE") else 0,
         "bed": bed, "bed_target": 60 if stage in ("RUNNING", "PREPARE") else 0, "chamber": 34,
         "print_error": error, "hms": [], "ams": [], "objects": [], "skip_enabled": False, "stale": False,
-        "preview": False, "preview_version": 0, "preview_pending": False, "model": "示範機",
+        "preview": bool(file), "preview_version": 1, "preview_pending": False, "model": "示範機",
         "control_enabled": False, "control_actions": [],
         "_status": "ok" if stage in ("RUNNING", "PREPARE") else "idle",
     }
@@ -145,11 +148,18 @@ class Module(BaseModule):
         title, artist, album, length = SONGS[index]
         return {"title": title, "artist": artist, "album": album, "source": "Apple Music", "playing": self.playing,
                 "position": pos, "duration": float(length), "sampled": time.time(), "track": f"demo:{index}",
-                "browser_bridge": True, "video": False, "lyrics": "ok", "lyrics_revision": index, "art_url": "",
+                "browser_bridge": True, "video": False, "lyrics": "ok", "lyrics_revision": index,
+                "art_url": f"/api/asset/{self.id}/cover?v=1",
                 "progress": round(pos / length * 100), "ext": "demo", "ext_expected": "demo", "ext_outdated": False,
                 "mirror": "", "demo": True, "_status": "ok" if self.playing else "idle"}
 
     def asset(self, name):
+        picture = {("bambu", "preview"): "plate.svg", ("media", "cover"): "cover.svg"}.get((self.type, name))
+        if picture:
+            try:
+                return (PICTURES / picture).read_bytes(), "image/svg+xml"
+            except OSError:
+                return None
         if self.type == "media" and name == "lyrics":
             index, _ = self._song()
             body = {"source": "示範", "synced": self._lines(index)}

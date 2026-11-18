@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- demo print preview: a build plate seen from above at an angle, with a phone stand on it (drawn, not a real slice) -->
+  <defs>
+    <linearGradient id="plate" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3a3d46"/><stop offset="1" stop-color="#26282f"/>
+    </linearGradient>
+    <linearGradient id="top" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f6c47a"/><stop offset="1" stop-color="#e9a64f"/>
+    </linearGradient>
+  </defs>
+  <!-- plate -->
+  <polygon points="256,150 470,270 256,390 42,270" fill="url(#plate)"/>
+  <polygon points="42,270 256,390 256,404 42,284" fill="#1c1d22"/>
+  <polygon points="256,390 470,270 470,284 256,404" fill="#15161a"/>
+  <g stroke="#4a4e59" stroke-width="1" opacity=".55">
+    <line x1="95.5" y1="240" x2="309.5" y2="360"/><line x1="149" y1="210" x2="363" y2="330"/>
+    <line x1="202.5" y1="180" x2="416.5" y2="300"/>
+    <line x1="309.5" y1="180" x2="95.5" y2="300"/><line x1="363" y1="210" x2="149" y2="330"/>
+    <line x1="416.5" y1="240" x2="202.5" y2="360"/>
+  </g>
+  <!-- phone stand: a base slab and a leaning back -->
+  <polygon points="206,268 300,215 352,244 258,297" fill="url(#top)"/>
+  <polygon points="206,268 258,297 258,313 206,284" fill="#b9742a"/>
+  <polygon points="258,297 352,244 352,260 258,313" fill="#cf8a3a"/>
+  <polygon points="282,226 316,207 316,120 282,139" fill="#e39a45"/>
+  <polygon points="316,207 342,222 342,135 316,120" fill="#c27a2f"/>
+  <polygon points="282,139 316,120 342,135 308,154" fill="#f6c47a"/>
+  <polygon points="214,272 300,224 312,231 226,279" fill="#b9742a" opacity=".55"/>
+  <!-- a second small part -->
+  <polygon points="126,286 160,267 190,284 156,303" fill="url(#top)"/>
+  <polygon points="126,286 156,303 156,315 126,298" fill="#b9742a"/>
+  <polygon points="156,303 190,284 190,296 156,315" fill="#cf8a3a"/>
+</svg>

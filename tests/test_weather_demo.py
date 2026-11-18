@@ -97,6 +97,16 @@ class WeatherTests(unittest.TestCase):
 
 
 class DemoTests(unittest.TestCase):
+    def test_demo_printer_and_song_have_pictures(self):
+        printer = demo.Module({"id": "printer", "type": "bambu"}, time.time())
+        music = demo.Module({"id": "music", "type": "media"}, time.time())
+        self.assertTrue(printer.poll()["preview"])
+        self.assertEqual(music.poll()["art_url"], "/api/asset/music/cover?v=1")
+        for module, name in ((printer, "preview"), (music, "cover")):
+            body, mime = module.asset(name)
+            self.assertEqual(mime, "image/svg+xml")
+            self.assertTrue(body.lstrip().startswith(b"<svg"))
+
     def test_the_script_produces_the_same_events_every_loop(self):
         """Offline, repeatable acceptance data: one loop of the demo fed to the real detector."""
         det, names = EventDetector(80), []
