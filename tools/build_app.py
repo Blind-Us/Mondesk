@@ -229,7 +229,13 @@ Demo first: ./mondesk-demo.sh  (scripted data: no printer or account needed, not
 
 Settings: the gear at the top left of the panel.
 Your settings live in ~/.config/DeskMon, not in this folder.
-The volume card and "now playing" from the system need Windows; everything else works the same.
+Nothing to install: Python and every package are inside. Runs on any x86-64 Linux with
+glibc 2.35 or newer (Ubuntu 22.04+, Debian 12+, Fedora 36+, Mint 21+, Arch, ...).
+Optional system tools, only for the features that use them:
+  playerctl      "now playing" from desktop players (the browser extension does not need it)
+  pactl          the volume slider (PulseAudio / PipeWire)
+  brightnessctl  a laptop's backlight
+  xrandr         choosing which screen the panel goes on
 """
 
 

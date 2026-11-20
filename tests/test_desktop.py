@@ -115,3 +115,23 @@ class DesktopApiTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ChildEnvironmentTests(unittest.TestCase):
+    """The Linux package's own libraries must not leak into the programs Mondesk starts."""
+
+    def test_package_library_path_removed(self):
+        env = {'LD_LIBRARY_PATH': '/opt/Mondesk/_internal', 'PATH': '/usr/bin'}
+        desktop.clean_child_environment(env, frozen=True, platform='linux')
+        self.assertEqual(env, {'PATH': '/usr/bin'})
+
+    def test_users_own_library_path_restored(self):
+        env = {'LD_LIBRARY_PATH': '/opt/Mondesk/_internal:/home/me/lib', 'LD_LIBRARY_PATH_ORIG': '/home/me/lib'}
+        desktop.clean_child_environment(env, frozen=True, platform='linux')
+        self.assertEqual(env, {'LD_LIBRARY_PATH': '/home/me/lib'})
+
+    def test_source_and_windows_untouched(self):
+        for frozen, platform in ((False, 'linux'), (True, 'win32')):
+            env = {'LD_LIBRARY_PATH': '/somewhere'}
+            desktop.clean_child_environment(env, frozen=frozen, platform=platform)
+            self.assertEqual(env, {'LD_LIBRARY_PATH': '/somewhere'})

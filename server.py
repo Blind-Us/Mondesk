@@ -254,7 +254,10 @@ def extension_step(app, step, port):
         if sys.platform == "win32":
             __import__("os").startfile(folder)
         else:
-            subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", str(folder)])
+            try:
+                subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", str(folder)])
+            except OSError:   # no file manager opener on this system (minimal desktops): show the path instead
+                return {"ok": False, "folder": str(folder), "error": f"無法自動開啟資料夾，請手動開啟：{folder}"}
         return {"ok": True, "folder": str(folder)}
     return {"ok": False, "error": "不明的步驟"}
 

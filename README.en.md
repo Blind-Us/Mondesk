@@ -27,6 +27,7 @@ Get it from [Releases](../../releases). Unzip and double-click; no Python to ins
 | Windows 10/11 | `Mondesk-windows.zip` | `Mondesk.exe` |
 | Linux | `Mondesk-linux.tar.gz` | `./Mondesk` (the panel opens in your browser) |
 
+- The Linux package carries Python and every package; nothing to install. It needs x86-64 and glibc 2.35 or newer (Ubuntu 22.04+, Debian 12+, Fedora 36+, Mint 21+, Arch, ...).
 - Start with the computer, full screen: the "應用程式" (Application) section of the settings page.
 - Apple Music lyrics and video sync need the browser extension; the "正在播放" (Now Playing) section of the settings page explains how to install it.
 - The Windows package carries the official embeddable Python; `Mondesk.exe` keeps the Python Software Foundation's signature, so it runs even with Smart App Control turned on.

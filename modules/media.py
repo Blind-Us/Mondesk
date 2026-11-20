@@ -263,7 +263,7 @@ class Module(BaseModule):
                 self.win = _windows_ps
                 self.win_act = _windows_ps_action
         elif sys.platform.startswith("linux") and not shutil.which("playerctl"):
-            self.err = "請安裝 playerctl（sudo apt install playerctl）"
+            self.err = "等待瀏覽器擴充功能傳來播放資訊。讀取 Linux 系統播放器需要 playerctl。"
         elif sys.platform == "darwin" and not shutil.which("nowplaying-cli"):
             self.err = "請安裝 nowplaying-cli（brew install nowplaying-cli）"
 

@@ -27,6 +27,8 @@
 | Windows 10／11 | `Mondesk-windows.zip` | `Mondesk.exe` |
 | Linux | `Mondesk-linux.tar.gz` | `./Mondesk`（面板開在瀏覽器裡） |
 
+- Linux 版內含 Python 與所有套件，不需安裝任何東西；需要 x86-64 與 glibc 2.35 以上（Ubuntu 22.04+、Debian 12+、Fedora 36+、Mint 21+、Arch 等）。
+- Linux 預設使用瀏覽器。Chrome 擴充功能可直接傳送支援網站的播放資訊；讀取系統播放器才需要選用工具 `playerctl`。系統卡的音量與背光控制分別使用 `pactl`、`brightnessctl`。
 - 開機自動啟動、全螢幕：設定頁的「應用程式」。
 - Apple Music 歌詞與影片同步需要瀏覽器擴充功能，設定頁「正在播放」有安裝說明。
 - Windows 版裡附的是 Python 官方的免安裝版，`Mondesk.exe` 保留 Python 官方的數位簽章，開著「智慧型應用程式控制」的電腦也能執行。

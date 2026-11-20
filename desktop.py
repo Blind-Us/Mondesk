@@ -22,6 +22,25 @@ from user_paths import ensure_user_config, user_config_path, user_data_dir
 
 APP = 'Mondesk'
 FROZEN = bool(getattr(sys, 'frozen', False))
+
+
+def clean_child_environment(environ=os.environ, frozen=FROZEN, platform=sys.platform):
+    """The Linux package's launcher points LD_LIBRARY_PATH at its own folder so this program finds the
+    libraries it carries. Every program Mondesk starts (the browser through xdg-open, playerctl, pactl,
+    brightnessctl, xrandr, Bambu Studio) would inherit it and load our copies of libssl, libz, ... instead
+    of the system's own, which can crash them. The libraries are already loaded by now, so the variable
+    goes back to what it was before the launcher touched it."""
+    if not (frozen and platform.startswith('linux')):
+        return
+    for key in ('LD_LIBRARY_PATH',):
+        original = environ.pop(key + '_ORIG', None)
+        if original is not None:
+            environ[key] = original
+        else:
+            environ.pop(key, None)
+
+
+clean_child_environment()
 ICON = server.ROOT / 'assets' / ('mondesk.ico' if sys.platform == 'win32' else 'mondesk.png')
 
 
@@ -171,7 +190,9 @@ def self_test(output):
     get = lambda path: urllib.request.urlopen(url + path, timeout=10)
     result = {'mqtt': True, 'window': window, 'modules': len(app.hub.modules), 'web': get('/').status, 'settings': get('/settings.html').status,
               'icon': get('/icon.svg').status, 'desktop': json.loads(get('/api/desktop').read()).get('app'),
-              'extension': (server.ROOT / 'apple-music-extension' / 'manifest.json').is_file(), 'app_icon': ICON.is_file()}
+              'extension': (server.ROOT / 'apple-music-extension' / 'manifest.json').is_file(), 'app_icon': ICON.is_file(),
+              # programs Mondesk starts must not load the package's own libraries (see clean_child_environment)
+              'child_env': not str(server.ROOT) in os.environ.get('LD_LIBRARY_PATH', '')}
     Path(output).write_text(json.dumps(result), encoding='utf-8')
     http.shutdown(); app.hub.stop()
 
@@ -202,7 +223,7 @@ def main():
     threading.Thread(target=http.serve_forever, daemon=True).start()
 
     webview = None
-    if not args.browser:
+    if not args.browser and not sys.platform.startswith('linux'):
         try: import webview
         except Exception: webview = None
     try:

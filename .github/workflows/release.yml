@@ -21,7 +21,9 @@ jobs:
           # Windows ships python.org's embeddable Python of this exact version (tools/build_app.py)
           - os: windows-latest
             python: "3.15"
-          - os: ubuntu-latest
+          # the Linux package runs on systems with this glibc or newer (PyInstaller bundles libpython built
+          # against it): 22.04 -> glibc 2.35, so Ubuntu 22.04+, Debian 12+, Fedora 36+. Not ubuntu-latest.
+          - os: ubuntu-22.04
             python: "3.12"
     runs-on: ${{ matrix.os }}
     steps:
@@ -38,6 +40,16 @@ jobs:
         run: python tools/check.py
       - name: Build
         run: python tools/build_app.py
+      # the package must start on clean systems: nothing installed but the distribution's base image
+      # (no Python, no packages, no PATH tools), as a downloaded tar.gz would
+      - name: Try the Linux package on clean systems
+        if: runner.os == 'Linux'
+        run: |
+          for image in ubuntu:22.04 debian:12-slim fedora:41 archlinux:latest; do
+            echo "== $image"
+            docker run --rm -v "$PWD/dist:/dist:ro" "$image" sh -c \
+              'mkdir /t && tar xzf /dist/Mondesk-linux.tar.gz -C /t && /t/Mondesk/Mondesk --self-test /t/r.json && cat /t/r.json && grep -q "\"child_env\": true" /t/r.json'
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: Mondesk-${{ runner.os }}
